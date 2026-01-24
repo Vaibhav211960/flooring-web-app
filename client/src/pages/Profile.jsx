@@ -1,142 +1,163 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { toast } from "sonner";
 import { 
-  Home as HomeIcon, 
-  ChevronRight, 
-  User, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Package, 
-  LogOut,
-  ShieldCheck
+  Home as HomeIcon, ChevronRight, User, MapPin, 
+  Phone, Mail, Package, LogOut, ShieldCheck, Loader2, KeyRound
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Button } from "../ui/button";
 
 export default function Profile() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  
   const [user, setUser] = useState({
-    fname: "Vaibhav",
-    lname: "Parmar",
-    userName: "vaibhav_01",
-    email: "vaibhav@email.com",
-    contact: "9876543210",
-    pincode: "380015",
-    address: "304, Sunrise Residency, Prahladnagar, Ahmedabad",
-    role: "Premium Customer",
+    fname: "", lname: "", userName: "", email: "",
+    contact: "", pincode: "", address: "", role: "Customer"
   });
 
-  const handleChange = (e) => {
-    setUser({ ...user, [e.target.name]: e.target.value });
+  const [passwords, setPasswords] = useState({
+    oldPassword: "", newPassword: "", confirmPassword: ""
+  });
+
+  const getAuthHeaders = () => ({
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+  });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await axios.get("http://localhost:5000/api/users/me", getAuthHeaders());
+        const data = res.data.user;
+        setUser({
+          fname: data.fname || "",
+          lname: data.lname || "",
+          userName: data.username || data.userName || "",
+          email: data.email || "",
+          contact: data.contact || "",
+          pincode: data.pincode || "",
+          address: data.address || "",
+          role: "Customer"
+        });
+      } catch (err) {
+        toast.error("Session expired. Please login again.");
+        navigate("/login");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, [navigate]);
+
+  const handleChange = (e) => setUser({ ...user, [e.target.name]: e.target.value });
+  const handlePasswordChange = (e) => setPasswords({ ...passwords, [e.target.name]: e.target.value });
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setUpdating(true);
+    try {
+      await axios.put("http://localhost:5000/api/users/me", user, getAuthHeaders());
+      toast.success("Profile updated successfully");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Update failed");
+    } finally {
+      setUpdating(false);
+    }
   };
 
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (!passwords.oldPassword || !passwords.newPassword) return toast.error("Please fill password fields");
+    if (passwords.newPassword !== passwords.confirmPassword) return toast.error("New passwords do not match");
+
+    setUpdating(true);
+    try {
+      await axios.put("http://localhost:5000/api/users/me/change-password", {
+        oldPassword: passwords.oldPassword,
+        newPassword: passwords.newPassword
+      }, getAuthHeaders());
+      toast.success("Password changed successfully");
+      setPasswords({ oldPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Password update failed");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-amber-600" /></div>;
+
   return (
-    
     <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900">
-      
       <Navbar />
 
-      {/* --- Architectural Header --- */}
-      <section className="bg-stone-900 text-stone-50 border-b border-amber-900/20">
-        <div className="container max-w-7xl mx-auto px-6 py-12">
-          <nav className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 mb-6">
-            <Link to="/" className="hover:text-white flex items-center gap-1 transition-colors">
-              <HomeIcon className="h-3 w-3" /> Home
-            </Link>
-            <ChevronRight className="h-3 w-3" />
-            <span className="text-amber-500 font-bold tracking-widest">Account Settings</span>
-          </nav>
-          
-          <div className="flex flex-col md:flex-row md:items-center gap-6">
-            <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white text-3xl font-serif font-bold shadow-xl shadow-amber-900/20">
-              {user.fname[0]}{user.lname[0]}
-            </div>
-            <div>
-              <h1 className="font-serif text-3xl md:text-4xl font-bold">
-                Hello, <span className="italic text-amber-500">{user.fname}</span>
-              </h1>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="text-[10px] uppercase tracking-[0.15em] bg-stone-800 text-stone-400 px-3 py-1 rounded-full border border-stone-700">
-                  {user.role}
-                </span>
-                <span className="text-stone-500 text-xs font-mono">ID: {user.userName}</span>
-              </div>
-            </div>
+      <section className="bg-stone-900 text-stone-50 py-12">
+        <div className="container max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center gap-6">
+          <div className="h-20 w-20 rounded-2xl bg-amber-600 flex items-center justify-center text-3xl font-bold shadow-xl shadow-amber-900/20">
+            {user.fname?.[0]}{user.lname?.[0]}
+          </div>
+          <div>
+            <h1 className="text-3xl font-serif font-bold italic tracking-tight">
+              Architectural <span className="text-amber-500 not-italic">Identity</span>
+            </h1>
+            <p className="text-stone-400 text-sm font-mono mt-1 uppercase tracking-tighter">Member ID: {user.userName}</p>
           </div>
         </div>
       </section>
 
-      {/* --- Main Dashboard Content --- */}
-      <main className="flex-grow py-12 md:py-16">
+      <main className="flex-grow py-12">
         <div className="container max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12">
           
-          {/* Left Sidebar Nav */}
-          <aside className="lg:col-span-3 space-y-2">
+          <aside className="lg:col-span-3 space-y-4">
             <SidebarLink icon={<User size={18}/>} label="Personal Details" active />
-            <SidebarLink icon={<Package size={18}/>} label="Order History" onClick={() => navigate("/order-history")} />
-            <SidebarLink icon={<MapPin size={18}/>} label="Saved Addresses" />
-            <div className="pt-4 mt-4 border-t border-stone-200">
-              <button className="flex items-center gap-3 w-full px-4 py-3 text-sm font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 rounded-xl transition-colors">
-                <LogOut size={18} /> Sign Out
-              </button>
-            </div>
+            <SidebarLink icon={<Package size={18}/>} label="My Orders" onClick={() => navigate("/order-history")} />
+            <button onClick={() => { localStorage.removeItem("token"); navigate("/login"); }} 
+              className="flex items-center gap-4 w-full px-4 py-4 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-all uppercase tracking-widest">
+              <LogOut size={18} /> Sign Out
+            </button>
           </aside>
 
-          {/* Right Content Area */}
-          <div className="lg:col-span-9">
-            <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-8 md:p-10">
-              <div className="flex items-center justify-between mb-10">
-                <h2 className="text-xl font-serif font-bold">Identity & Contact</h2>
-                <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full">
-                  <ShieldCheck size={14} /> Verified Account
-                </div>
-              </div>
-
-              <form className="space-y-8">
-                {/* Names Grid */}
+          <div className="lg:col-span-9 space-y-10">
+            {/* --- Profile Form --- */}
+            <div className="bg-white rounded-2xl border border-stone-200 p-8 shadow-sm">
+              <h2 className="text-xl font-serif font-bold mb-8 flex items-center gap-3">
+                <span className="h-8 w-1 bg-amber-500 block"></span> Identity & Contact
+              </h2>
+              <form onSubmit={handleUpdateProfile} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <ProfileInput label="First Name" name="fname" value={user.fname} onChange={handleChange} />
                   <ProfileInput label="Last Name" name="lname" value={user.lname} onChange={handleChange} />
                 </div>
-
-                {/* Email & Phone */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2 opacity-60">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-2">
-                      <Mail size={12}/> Primary Email
-                    </label>
-                    <input value={user.email} disabled className="w-full h-12 bg-stone-100 border-stone-200 rounded-xl px-4 text-sm cursor-not-allowed" />
-                  </div>
-                  <ProfileInput label="Contact Number" icon={<Phone size={12}/>} name="contact" value={user.contact} onChange={handleChange} />
+                  <ProfileInput label="Contact" name="contact" value={user.contact} onChange={handleChange} />
+                  <ProfileInput label="Email (Linked)" name="email" value={user.email} readOnly disabled />
                 </div>
-
-                {/* Address Section */}
-                <div className="pt-6 border-t border-stone-100 space-y-6">
-                  <h3 className="text-xs uppercase tracking-[0.2em] font-bold text-stone-400">Default Shipping Address</h3>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Street Address</label>
-                    <textarea
-                      name="address"
-                      rows="3"
-                      value={user.address}
-                      onChange={handleChange}
-                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all resize-none shadow-inner"
-                    />
-                  </div>
-                  <div className="max-w-xs">
-                    <ProfileInput label="Pincode" name="pincode" value={user.pincode} onChange={handleChange} />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-stone-500 ml-1">Shipping Address</label>
+                  <textarea name="address" value={user.address} onChange={handleChange}
+                    className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:border-amber-500 outline-none transition-all" rows="3" />
                 </div>
+                <div className="flex justify-end"><Button type="submit" disabled={updating} className="bg-stone-900 text-white px-10 h-12 uppercase tracking-widest font-bold">Update Profile</Button></div>
+              </form>
+            </div>
 
-                {/* Submit Actions */}
-                <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-end border-t border-stone-100">
-                  <button type="button" className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-stone-500 hover:text-stone-900 transition-colors">
-                    Discard Changes
-                  </button>
-                  <Button className="h-14 px-10 bg-stone-900 text-white hover:bg-stone-800 rounded-xl font-bold uppercase tracking-widest transition-transform active:scale-95 shadow-lg shadow-stone-200">
-                    Update Profile
-                  </Button>
+            {/* --- Password Change Form --- */}
+            <div className="bg-white rounded-2xl border border-stone-200 p-8 shadow-sm">
+              <h2 className="text-xl font-serif font-bold mb-8 flex items-center gap-3">
+                <span className="h-8 w-1 bg-stone-900 block"></span> Security Credentials
+              </h2>
+              <form onSubmit={handleUpdatePassword} className="space-y-6">
+                <ProfileInput label="Current Password" type="password" name="oldPassword" value={passwords.oldPassword} onChange={handlePasswordChange} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <ProfileInput label="New Password" type="password" name="newPassword" value={passwords.newPassword} onChange={handlePasswordChange} />
+                  <ProfileInput label="Confirm New Password" type="password" name="confirmPassword" value={passwords.confirmPassword} onChange={handlePasswordChange} />
+                </div>
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={updating} className="bg-amber-600 hover:bg-amber-700 text-white px-10 h-12 uppercase tracking-widest font-bold">Update Security</Button>
                 </div>
               </form>
             </div>
@@ -144,37 +165,26 @@ export default function Profile() {
 
         </div>
       </main>
-
       <Footer />
     </div>
   );
 }
 
-/** --- Sub-Components for Clean Code --- **/
-
-function SidebarLink({ icon, label, active = false }) {
+function SidebarLink({ icon, label, active = false, onClick }) {
   return (
-    <button className={`flex items-center gap-4 w-full px-4 py-4 text-sm font-bold uppercase tracking-widest rounded-xl transition-all ${
-      active 
-      ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" 
-      : "text-stone-500 hover:bg-white hover:text-stone-900"
+    <button onClick={onClick} className={`flex items-center gap-4 w-full px-4 py-4 text-sm font-bold uppercase tracking-widest rounded-xl transition-all ${
+      active ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30" : "text-stone-500 hover:bg-white hover:text-stone-900"
     }`}>
-      {icon}
-      {label}
+      {icon} {label}
     </button>
   );
 }
 
-function ProfileInput({ label, icon, ...props }) {
+function ProfileInput({ label, ...props }) {
   return (
-    <div className="space-y-2">
-      <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500 flex items-center gap-2">
-        {icon} {label}
-      </label>
-      <input
-        {...props}
-        className="w-full h-12 rounded-xl border border-stone-200 bg-stone-50 px-4 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shadow-inner"
-      />
+    <div className="space-y-1">
+      <label className="text-[10px] font-bold uppercase text-stone-500 ml-1 tracking-tight">{label}</label>
+      <input {...props} className="w-full h-12 px-4 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:border-amber-500 outline-none transition-all disabled:opacity-50" />
     </div>
   );
 }

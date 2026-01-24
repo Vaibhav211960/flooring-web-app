@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
  */
 export const getMyProfile = async (req, res) => {
   try {
-    const user = await User.findById("6959016e3124075337f64c71").select("-password");
+    const user = await User.findById(req.user.id).select("-password");
     res.status(200).json({ user });
   } catch {
     res.status(500).json({ message: "Server error" });

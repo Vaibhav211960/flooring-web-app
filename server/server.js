@@ -19,9 +19,12 @@ import adminRoutes from "./routes/admin.route.js";
 dotenv.config();
 
 const app = express();
-// app.use(cors());
 
-app.use(cors({ origin: "http://localhost:5173", credentials: true })); // adjust origin to your frontend
+app.use(cors({
+  origin: 'http://localhost:5173', // Your frontend URL
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'] // Explicitly allow this!
+}));
 app.use(express.json());
 
 dbConnection();

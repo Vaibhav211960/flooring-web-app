@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Menu, User, ShoppingCart, LogOut, Package, Settings, Loader2 } from "lucide-react";
+import {
+  Menu,
+  User,
+  ShoppingCart,
+  LogOut,
+  Package,
+  Settings,
+  Loader2,
+} from "lucide-react";
 import axios from "axios"; // Ensure axios is installed
-
+import { useCart } from "../context/CartContext.jsx";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { CartSheet } from "../components/CartSheet.jsx";
@@ -10,6 +18,9 @@ import { CartSheet } from "../components/CartSheet.jsx";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const { getCartItemCount } = useCart();
+  const cartItemCount = getCartItemCount();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDashboard, setDashboard] = useState(false);
@@ -29,13 +40,17 @@ export default function Navbar() {
         setUser(null);
         return;
       }
-
+      console.log(token);
+      
       try {
         setLoading(true);
         // Replace with your actual profile endpoint
-        const response = await axios.get("http://localhost:5000/api/users/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await axios.get(
+          "http://localhost:5000/api/users/me",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         setUser(response.data.user || response.data);
       } catch (err) {
         console.error("Session expired or invalid token");
@@ -89,7 +104,6 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-stone-200/60 bg-white/80 backdrop-blur-md shadow-sm">
       <div className="container mx-auto px-4 md:px-8 lg:px-12 flex h-20 items-center justify-between">
-        
         {/* Logo Section */}
         <Link to="/" className="flex items-center gap-2 group">
           <div className="w-8 h-8 bg-stone-900 rounded-sm flex items-center justify-center group-hover:bg-amber-700 transition-colors">
@@ -107,7 +121,9 @@ export default function Navbar() {
               key={link.label}
               to={link.href}
               className={`text-sm font-medium transition-colors hover:text-amber-700 ${
-                location.pathname === link.href ? "text-amber-800" : "text-stone-600"
+                location.pathname === link.href
+                  ? "text-amber-800"
+                  : "text-stone-600"
               }`}
             >
               {link.label}
@@ -117,7 +133,15 @@ export default function Navbar() {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center gap-3 relative">
-          <CartSheet />
+          <Link to="/cart" className="relative">
+            <ShoppingCart className="h-5 w-5" />
+            {cartItemCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                {cartItemCount > 9 ? "9+" : cartItemCount}
+              </span>
+            )}
+          </Link>
+
           <div className="h-6 w-px bg-stone-200 mx-2" />
 
           {isLogged ? (
@@ -129,7 +153,11 @@ export default function Navbar() {
                 className="flex items-center gap-2 pl-2 pr-2 rounded-full hover:bg-stone-100"
               >
                 <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-900 border border-amber-200">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />}
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <User className="h-4 w-4" />
+                  )}
                 </div>
                 {/* Dynamically show name */}
                 <span className="text-sm font-medium text-stone-700 max-w-[80px] truncate">
@@ -143,20 +171,30 @@ export default function Navbar() {
                   className="absolute top-full right-0 mt-2 w-64 bg-white border border-stone-100 rounded-xl shadow-xl py-2 z-[60] animate-in fade-in slide-in-from-top-2 duration-200"
                 >
                   <div className="px-4 py-3 border-b border-stone-50 mb-1">
-                    <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Signed in as</p>
-                    <p className="text-sm font-semibold truncate text-stone-800">{user?.email || "Guest"}</p>
+                    <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">
+                      Signed in as
+                    </p>
+                    <p className="text-sm font-semibold truncate text-stone-800">
+                      {user?.email || "Guest"}
+                    </p>
                   </div>
-                  
-                  <Link to="/profile" className="flex items-center gap-3 px-4 py-2 text-sm text-stone-600 hover:bg-amber-50 hover:text-amber-900 transition-colors">
+
+                  <Link
+                    to="/profile"
+                    className="flex items-center gap-3 px-4 py-2 text-sm text-stone-600 hover:bg-amber-50 hover:text-amber-900 transition-colors"
+                  >
                     <Settings className="w-4 h-4" /> Profile Settings
                   </Link>
-                  <Link to="/orders" className="flex items-center gap-3 px-4 py-2 text-sm text-stone-600 hover:bg-amber-50 hover:text-amber-900 transition-colors">
+                  <Link
+                    to="/orders"
+                    className="flex items-center gap-3 px-4 py-2 text-sm text-stone-600 hover:bg-amber-50 hover:text-amber-900 transition-colors"
+                  >
                     <Package className="w-4 h-4" /> My Orders
                   </Link>
-                  
+
                   <div className="h-px bg-stone-50 my-1" />
-                  
-                  <button 
+
+                  <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
                   >
@@ -168,10 +206,14 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-2">
               <Link to="/login">
-                <Button variant="ghost" className="text-stone-600">Log In</Button>
+                <Button variant="ghost" className="text-stone-600">
+                  Log In
+                </Button>
               </Link>
               <Link to="/register">
-                <Button className="bg-stone-900 hover:bg-stone-800 text-white px-6">Get Started</Button>
+                <Button className="bg-stone-900 hover:bg-stone-800 text-white px-6">
+                  Get Started
+                </Button>
               </Link>
             </div>
           )}
@@ -194,38 +236,62 @@ export default function Navbar() {
                       <User className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-stone-900">{user.name}</p>
-                      <p className="text-xs text-stone-500 truncate">{user.email}</p>
+                      <p className="text-sm font-bold text-stone-900">
+                        {user.name}
+                      </p>
+                      <p className="text-xs text-stone-500 truncate">
+                        {user.email}
+                      </p>
                     </div>
                   </div>
                 )}
-                
+
                 <div className="flex flex-col gap-4">
-                  <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Navigation</p>
+                  <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">
+                    Navigation
+                  </p>
                   {navLinks.map((link) => (
-                    <Link 
-                      key={link.label} 
-                      to={link.href} 
+                    <Link
+                      key={link.label}
+                      to={link.href}
                       className="text-2xl font-serif font-medium text-stone-900 hover:text-amber-700"
                     >
                       {link.label}
                     </Link>
                   ))}
                 </div>
-                
+
                 <div className="h-px bg-stone-100" />
-                
+
                 <div className="flex flex-col gap-4">
                   {isLogged ? (
                     <>
-                       <Link to="/profile" className="text-lg text-stone-600">My Profile</Link>
-                       <Link to="/orders" className="text-lg text-stone-600">My Orders</Link>
-                       <Button onClick={handleLogout} variant="destructive" className="mt-4">Logout</Button>
+                      <Link to="/profile" className="text-lg text-stone-600">
+                        My Profile
+                      </Link>
+                      <Link to="/orders" className="text-lg text-stone-600">
+                        My Orders
+                      </Link>
+                      <Button
+                        onClick={handleLogout}
+                        variant="destructive"
+                        className="mt-4"
+                      >
+                        Logout
+                      </Button>
                     </>
                   ) : (
                     <>
-                      <Link to="/login"><Button variant="outline" className="w-full">Log In</Button></Link>
-                      <Link to="/register"><Button className="w-full bg-stone-900">Register</Button></Link>
+                      <Link to="/login">
+                        <Button variant="outline" className="w-full">
+                          Log In
+                        </Button>
+                      </Link>
+                      <Link to="/register">
+                        <Button className="w-full bg-stone-900">
+                          Register
+                        </Button>
+                      </Link>
                     </>
                   )}
                 </div>
@@ -233,7 +299,6 @@ export default function Navbar() {
             </SheetContent>
           </Sheet>
         </div>
-
       </div>
     </nav>
   );

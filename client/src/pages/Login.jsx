@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate , useLocation } from "react-router-dom";
-import axios from "axios"; // Ensure axios is installed
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
 import {
   Eye,
   EyeOff,
@@ -43,39 +43,19 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // --- BACKEND INTEGRATION ---
-      // Replace URL with your actual backend endpoint
-      const response = await axios.post(
-        "http://localhost:5000/api/users/login",
-        {
-          email,
-          password,
-        },
-      );
-
-      const { token, user } = response.data;
-
-      // 1. Save token to local storage for persistent sessions
-      localStorage.setItem("token", token);
-
-      // 2. Update the Global Context
-      // Inside your Login.jsx handleLogin function
-
-      const onLoginSuccess = () => {
-        const origin = location.state?.from?.pathname || "/";
-        const savedQty = location.state?.qty || 1;
-
-        // Go back to the product they were looking at
-        navigate(origin, { state: { quantity: savedQty } });
+      const payload = {
+        email,
+        password,
       };
+      const response = await axios.post(
+        "http://localhost:5000/api/users/login", // Argument 1: URL
+        payload, // Argument 2: Data
+      );
+      console.log(response.data);
+      const { token } = response.data;
 
-      // 3. Success Notification
-      toast({
-        title: "Welcome Back",
-        description: `Successfully signed in as ${user.name}.`,
-      });
-
-      // 4. Redirect to Home
+      localStorage.setItem("token", token);
+      console.log(token);
       navigate("/");
     } catch (err) {
       // Handle various error scenarios from the backend
