@@ -14,7 +14,7 @@ export const CartProvider = ({ children }) => {
   const [cartTotal, setCartTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("UserToken");
   const API_BASE_URL = "http://localhost:5000/api/cart";
 
   /* -------------------- HELPERS -------------------- */

@@ -8,7 +8,7 @@ import {
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Button } from "../ui/button";
-
+import { toast } from "sonner";
 
 export default function BuyNow() {
   const { id } = useParams();
@@ -54,27 +54,60 @@ export default function BuyNow() {
   const handleInput = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   // RAZORPAY INTEGRATION HANDLER
-  const handlePlaceOrder = async () => {
-    if (!form.fullName || !form.contact || !form.address) {
-      alert("Please fill in your delivery details.");
+const handlePlaceOrder = async () => {
+    // 1. Validation
+    if (!form.fullName || !form.contact || !form.address || !form.pincode) {
+      alert("Please fill in all delivery details including Pincode.");
       return;
     }
 
-    // 1. Create order on your backend
-    // const { data: { order } } = await axios.post("http://localhost:5000/api/payment/checkout", { amount: netBill });
-
     const options = {
-      key: "YOUR_RAZORPAY_KEY_ID", // Enter the Key ID generated from the Dashboard
-      amount: netBill * 100, // Amount is in currency subunits (Paisa)
+      key: "YOUR_RAZORPAY_KEY_ID", 
+      amount: netBill * 100, 
       currency: "INR",
       name: "Gemini Flooring",
       description: `Purchase of ${product.name}`,
       image: product.image,
-      handler: function (response) {
-        // This executes after successful payment
-        console.log("Payment ID:", response.razorpay_payment_id);
-        alert("Order Placed Successfully!");
-        navigate("/order-success");
+      handler: async function (response) {
+        try {
+          // 2. Prepare Payload strictly following your Mongoose Model
+          const orderPayload = {
+            // items: [orderItemSchema]
+            items: [
+              {
+                productId: product._id,         // Matches ObjectId ref: "Product"
+                productName: product.name,      // Matches String
+                pricePerUnit: product.price,    // Matches Number
+                units: units,                   // Matches Number
+                totalAmount: subtotal           // price * units
+                // discountPerService: 0        // optional, defaults to 0
+              }
+            ],
+            // Main Schema Fields
+            netBill: netBill,                   // Total including delivery
+            paymentMode: "Online",              // Matches Enum: ["COD", "Online"]
+            // orderStatus: "pending"           // Backend default is "pending"
+          };
+
+          // 3. API Call to save order
+          const res = await axios.post(
+            "http://localhost:5000/api/orders", 
+            orderPayload,
+            { 
+              headers: { 
+                Authorization: `Bearer ${localStorage.getItem("token")}` 
+              } 
+            }
+          );
+
+          if (res.status === 201 || res.status === 200) {
+            alert("Order Placed Successfully!");
+            navigate("/order-history");
+          }
+        } catch (err) {
+          console.error("Database Save Error:", err);
+          alert("Payment was successful, but we couldn't save your order. Please contact support with Payment ID: " + response.razorpay_payment_id);
+        }
       },
       prefill: {
         name: form.fullName,
@@ -82,18 +115,22 @@ export default function BuyNow() {
       },
       notes: {
         address: form.address,
+        pincode: form.pincode,
+        landmark: form.landmark
       },
       theme: {
-        color: "#1c1917", // Matches your stone-900 theme
+        color: "#1c1917",
       },
     };
 
-    const rzp = new window.Razorpay(options);
-    rzp.open();
+    // const rzp = new window.Razorpay(options);
+    // rzp.open();
   };
+  
+    if (loading) return <div className="h-screen flex items-center justify-center">Loading Checkout...</div>;
+    if (!product) return <div className="h-screen flex items-center justify-center">Product Not Found</div>;
 
-  if (loading) return <div className="h-screen flex items-center justify-center">Loading Checkout...</div>;
-  if (!product) return <div className="h-screen flex items-center justify-center">Product Not Found</div>;
+  
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900">

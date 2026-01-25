@@ -136,12 +136,20 @@ export default function Profile() {
                   <ProfileInput label="Contact" name="contact" value={user.contact} onChange={handleChange} />
                   <ProfileInput label="Email (Linked)" name="email" value={user.email} readOnly disabled />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase text-stone-500 ml-1">Shipping Address</label>
-                  <textarea name="address" value={user.address} onChange={handleChange}
-                    className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:border-amber-500 outline-none transition-all" rows="3" />
+                
+                {/* Address & Pincode Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-[10px] font-bold uppercase text-stone-500 ml-1">Shipping Address</label>
+                    <textarea name="address" value={user.address} onChange={handleChange}
+                      className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:border-amber-500 outline-none transition-all" rows="3" />
+                  </div>
+                  <div className="flex flex-col justify-start">
+                    <ProfileInput label="Pincode" name="pincode" value={user.pincode} onChange={handleChange} />
+                  </div>
                 </div>
-                <div className="flex justify-end"><Button type="submit" disabled={updating} className="bg-stone-900 text-white px-10 h-12 uppercase tracking-widest font-bold">Update Profile</Button></div>
+
+                <div className="flex justify-end pt-4"><Button type="submit" disabled={updating} className="bg-stone-900 text-white px-10 h-12 uppercase tracking-widest font-bold">Update Profile</Button></div>
               </form>
             </div>
 

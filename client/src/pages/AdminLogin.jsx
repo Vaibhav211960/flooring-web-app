@@ -19,7 +19,9 @@ const AdminLogin = () => {
       );
 
       // If successful
-      localStorage.setItem("adminToken", res.data.token);
+      localStorage.setItem("token", res.data.token);
+      console.log(res.data.token);
+      
       alert("Welcome back to the Studio Registry.");
       navigate("/admin");
     } catch (err) {

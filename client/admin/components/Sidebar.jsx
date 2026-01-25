@@ -19,7 +19,7 @@ const Sidebar = () => {
   const inactiveClass = "text-stone-400 hover:text-white hover:bg-stone-800";
 
   const LogOut = () => {
-    localStorage.removeItem("adminToken");
+    localStorage.removeItem("token");
     window.location.href = "/admin/login";
   }
 
