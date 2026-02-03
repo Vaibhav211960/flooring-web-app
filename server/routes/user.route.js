@@ -11,7 +11,7 @@ const router = express.Router();
 
 router.post("/login", loginUser)
 router.post("/signup", registerUser)
-router.get("/getAllUsers", adminAuth, getAllUsers)
+router.get("/getAllUsers", getAllUsers)
 router.get("/me", verifyToken , getMyProfile)
 router.put("/me", verifyToken, updateMyProfile);
 router.put("/me/change-password", verifyToken, changePassword);

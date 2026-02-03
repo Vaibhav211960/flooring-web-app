@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { ShoppingCart, Ruler, Info, ArrowRight } from "lucide-react";
+import AddToCartBtn from "../components/AddToCartBtn.jsx";
 
 const ProductCard = ({ product }) => {
   return (
@@ -30,9 +31,7 @@ const ProductCard = ({ product }) => {
                   : "bg-amber-100/90 text-amber-900"
               }`}
             >
-              {product.stock > 0
-                ? `${product.stock} In Stock`
-                : "Out of Stock"}
+              {product.stock > 0 ? `${product.stock} In Stock` : "Out of Stock"}
             </span>
           </div>
         </div>
@@ -53,15 +52,8 @@ const ProductCard = ({ product }) => {
 
           {/* Action Button - Integrated into the card flow */}
           <div className="mt-auto pt-2">
-            <button
-              onClick={(e) => {
-                e.preventDefault(); /* Cart Logic */
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-[11px] font-bold uppercase tracking-widest text-stone-700 hover:bg-stone-900 hover:text-white hover:border-stone-900 transition-all duration-300"
-            >
-              <ShoppingCart className="h-3.5 w-3.5" />
-              Add to cart
-            </button>
+           
+              <AddToCartBtn product={product} className="h-10 w-60 text-sm" />
           </div>
         </div>
       </Link>

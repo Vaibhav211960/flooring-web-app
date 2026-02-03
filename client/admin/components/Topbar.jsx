@@ -4,14 +4,12 @@ const Topbar = () => {
   return (
     <header className="h-20 bg-white border-b border-stone-200 flex items-center justify-between px-8 sticky top-0 z-50">
       {/* Left: Search Bar to fill space professionally */}
-     <div className="p-8 border-stone-800/50">
-        <h1 className="font-serif text-xl font-bold tracking-tight">
-          INSCAPE <span className="italic text-amber-500 text-sm">Layers</span>
-        </h1>
-        <p className="text-[9px] uppercase tracking-[0.3em] text-stone-500 mt-1 font-bold">
-          Admin Control Center
-        </p>
-      </div>
+    <div className="w-8 h-8 bg-stone-900 rounded-sm flex items-center justify-center group-hover:bg-amber-700 transition-colors">
+            <span className="text-white font-serif font-bold text-lg">I</span>
+          </div>
+          <span className="font-serif text-xl pr-245 font-bold tracking-tight text-stone-900">
+            Inscape Layers
+          </span>
 
       {/* Right: Actions & Profile */}
       <div className="flex items-center gap-6">

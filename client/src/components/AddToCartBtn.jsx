@@ -1,27 +1,30 @@
 import React, { useState } from "react";
 import { Button } from "../ui/button";
 import { useCart } from "../context/CartContext";
-import { toast } from "sonner";
+import { useToast } from "../hooks/useToast"; // Swapped Sonner for your custom hook
 import { ShoppingCart, Check, Loader2 } from "lucide-react";
 
 const AddToCartBtn = ({
   product,
   variant = "default",
   className = "",
-  qty = 1,
+  qty,
 }) => {
   const { addToCart, isInCart, getItemQuantity } = useCart();
+  const { toast } = useToast(); // Using your classic toaster
   const [localLoading, setLocalLoading] = useState(false);
 
   const handleAddToCart = async (e) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevents navigating to details if used inside a card
 
-    // Check if user is logged in (optional check here, but handled in context)
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("UserToken");
+    
     if (!token) {
-      toast.error("AUTHENTICATION REQUIRED", {
+      toast({
+        title: "AUTHENTICATION REQUIRED",
         description: "Please login to save this to your collection.",
-        className: "bg-red-900 text-white border-none font-serif",
+        className: "bg-stone-950 border border-red-900/50 text-white rounded-xl p-6",
       });
       return;
     }
@@ -29,20 +32,21 @@ const AddToCartBtn = ({
     setLocalLoading(true);
 
     try {
-      // Calling the actual backend-synced function from your Context
       await addToCart(product, qty);
 
-      toast.success("SPECIFICATION ADDED", {
+      toast({
+        title: "CART ADDED",
         description: `${product.name} is now in your collection.`,
-        className: "bg-stone-900 text-stone-50 border-stone-800 font-serif",
-        action: {
-          label: "VIEW CART",
-          onClick: () => (window.location.href = "/cart"),
-        },
+        className: "bg-stone-950 border border-stone-800 text-white rounded-xl p-6 shadow-2xl",
       });
     } catch (error) {
-      // Error handling is mostly in context, but we stop loading here
       console.error("Add to cart failed", error);
+      toast({
+        title: "SYSTEM ERROR",
+        description: "Could not sync with your collection. Try again.",
+        variant: "destructive",
+        className: "bg-stone-950 border border-red-900/50 text-white rounded-xl p-6",
+      });
     } finally {
       setLocalLoading(false);
     }
@@ -60,24 +64,14 @@ const AddToCartBtn = ({
         onClick={handleAddToCart}
         disabled={localLoading}
         className={`
-    w-full
-    flex items-center justify-center gap-2
-    py-2.5
-    rounded-xl
-   hover:scale-105
-    text-[11px]
-    font-bold
-    uppercase
-    tracking-widest
-    text-stone-700
-    bg-stone-900
-    text-white
-    border-stone-900
-    transition-all duration-300
-    disabled:opacity-60
-    disabled:cursor-not-allowed
-    ${className}
-  `}
+          w-full flex items-center justify-center gap-2
+          py-2.5 rounded-xl hover:scale-[1.02]
+          text-[11px] font-bold uppercase tracking-widest
+          bg-stone-900 text-white border-none
+          transition-all duration-300
+          disabled:opacity-60 disabled:cursor-not-allowed
+          ${className}
+        `}
       >
         {localLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />

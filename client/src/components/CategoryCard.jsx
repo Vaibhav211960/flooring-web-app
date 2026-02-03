@@ -10,7 +10,7 @@ export function CategoryCard({ cat }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/5 to-transparent opacity-80 group-hover:opacity-60 transition-opacity z-10" />
 
         <img
-          src={cat.image}
+          src={cat?.image || "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTdYohtT-PRFqia7Flnt0cp2Db5e8nUDdRnxabNuR1IYzAbnSZTb8bl8wuq_Fz6KnYvowo-I9JgFI8Ppf_pbkrenu5Q_MyOCFp8xdPTbabH8eK4HaLlxBq7"}
           alt={cat.name}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           loading="lazy"

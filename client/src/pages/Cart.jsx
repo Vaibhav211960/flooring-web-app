@@ -118,7 +118,7 @@ const Cart = () => {
               </div>
 
               <Button
-                onClick={() => navigate('/buy-now/all', { state: { items: cartItems } })}
+                onClick={() => navigate('/buy-all', { state: { items: cartItems } })}
                 disabled={isCheckingOut || isLoading}
                 className="w-full bg-stone-900 hover:bg-stone-800 text-white h-14 rounded-none font-bold uppercase tracking-[0.2em] text-[11px]"
               >

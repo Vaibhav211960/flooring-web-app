@@ -79,7 +79,6 @@ export default function Footer() {
               <li><Link to="/products?category=hardwood" className="hover:text-amber-800 transition-colors">Hardwood Flooring</Link></li>
               <li><Link to="/products?category=vinyl" className="hover:text-amber-800 transition-colors">Luxury Vinyl Plank</Link></li>
               <li><Link to="/products?category=laminate" className="hover:text-amber-800 transition-colors">Premium Laminate</Link></li>
-              <li><Link to="/products?category=samples" className="hover:text-amber-800 transition-colors text-amber-700 font-medium">Order Samples</Link></li>
             </ul>
           </div>
 
@@ -87,7 +86,6 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-stone-900 mb-6 uppercase text-xs tracking-widest">Customer Support</h4>
             <ul className="space-y-4 text-sm text-stone-600">
-              <li><Link to="/orders" className="hover:text-amber-800 transition-colors">Track Your Order</Link></li>
               <li><Link to="/shipping" className="hover:text-amber-800 transition-colors">Shipping Policy</Link></li>
               <li><Link to="/faq" className="hover:text-amber-800 transition-colors">FAQs</Link></li>
               <li><Link to="/contact" className="hover:text-amber-800 transition-colors">Contact Expert</Link></li>

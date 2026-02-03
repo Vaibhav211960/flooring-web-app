@@ -17,8 +17,8 @@ router.get("/:id", getSubCategoryById);
 router.get("/category/:categoryId", getSubCategoriesByCategory);
 
 // admin
-router.post("/create", adminAuth, createSubCategory);
-router.put("/:id", adminAuth, updateSubCategory);
-router.delete("/:id", adminAuth, deleteSubCategory);
+router.post("/create", createSubCategory);
+router.put("/:id", updateSubCategory);
+router.delete("/:id", deleteSubCategory);
 
 export default router;

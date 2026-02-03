@@ -11,7 +11,7 @@ export default function CategoryProducts() {
   const { catId } = useParams(); 
   
   const [products, setProducts] = useState([]);
-  const [subcategory, setSubcategory] = useState(null);
+  const [subcategory, setSubcategory] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -27,8 +27,15 @@ export default function CategoryProducts() {
           axios.get(`http://localhost:5000/api/products/subcategory/${catId}`)
         ]);
 
-        setSubcategory(subRes.data.subCategories);
+        if (subRes.data.subCategory) {
+        setSubcategory(subRes.data.subCategory);
+      }
+
+      console.log(subRes.data.subCategory.name);
+      
         setProducts(prodRes.data.products);
+        console.log(subcategory);
+        
       } catch (err) {
         console.error("Error fetching data:", err);
         setError("Could not load products for this collection.");
@@ -70,7 +77,7 @@ export default function CategoryProducts() {
             </Link>
             <ChevronRight className="h-3 w-3 text-stone-700" />
             <span className="text-amber-500 font-bold uppercase">
-              {subcategory?.title || "Series"}
+              {subcategory?.name || "Series"}
             </span>
           </nav>
 
@@ -80,7 +87,7 @@ export default function CategoryProducts() {
                 Series Catalog
               </p>
               <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight capitalize">
-                {subcategory?.title || "Architectural Series"}
+                {subcategory?.name || "Architectural Series"}
               </h1>
               <p className="text-stone-400 text-sm md:text-base leading-relaxed">
                 {subcategory?.description || "Explore our high-performance range of architectural solutions tailored for modern design."}

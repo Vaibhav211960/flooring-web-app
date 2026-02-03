@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { TooltipProvider } from "./ui/tooltip.jsx";
-import { Toaster } from "./ui/sonner.jsx";
+import { Toaster } from "./ui/toaster.jsx";
 
 // USER PAGES
 import Home from "./pages/Home.jsx";
@@ -25,6 +25,9 @@ import OrderDetails from "./pages/OrderDetails.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import BuyAll from "./pages/BuyAll.jsx";
+import OrderSuccess from "./pages/OrderSuccess.jsx";
+import Payment from "./pages/Pyment.jsx";
 
 // ADMIN LAYOUT + PAGES
 import AdminLayout from "../admin/AdminLayout.jsx";
@@ -67,6 +70,20 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Orders />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/checkout/payment" element={<Payment />} />
+              <Route path="/buy-all" element={
+                <ProtectedRoute>
+                  <BuyAll />
+                </ProtectedRoute>
+              } />
+              <Route
+                path="/order-success"
+                element={
+                  <ProtectedRoute>
+                    <OrderSuccess />
                   </ProtectedRoute>
                 }
               />

@@ -1,28 +1,25 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState } from "react";
+import { useToast } from "../../src/hooks/useToast"; // Adjust this path to your file
 import { 
-  CreditCard, User, IndianRupee, ArrowUpRight, 
-  CheckCircle2, Clock, AlertCircle, Copy, Search, 
-  X, MapPin, Package, Calendar, Hash, Mail, Phone, ExternalLink
+  User, IndianRupee, ArrowUpRight, CheckCircle2, 
+  Clock, AlertCircle, Copy, X, Package, Hash, 
+  Mail, Phone, ExternalLink, Download, RefreshCcw 
 } from "lucide-react";
 
-// --- 1. DUMMY DATA (5 ENTRIES) ---
 const paymentData = [
   {
     id: "PAY-9001",
     orderId: "ORD-1001",
-    customer: "Rahul Sharma",
-    email: "rahul@gmail.com",
+    customer: "John Snow",
+    email: "johnsnow123@gmail.com",
     phone: "+91 99887 76655",
-    address: "C-12, Green Park, New Delhi, 110016",
-    amount: 7497,
+    address: "D-102, Green Park, Ahmedabad, 110016",
+    amount: 1819,
     method: "UPI",
-    status: "success",
+    status: "confirmed",
     transactionId: "TXN123456789",
     paidAt: "Dec 18, 2024",
-    items: [
-      { name: "Teak Polish", qty: 3, price: 2499 }
-    ]
+    items: [{ name: "Teak Polish", qty: 3, price: 606 }]
   },
   {
     id: "PAY-9002",
@@ -33,12 +30,10 @@ const paymentData = [
     address: "402, Lotus Residency, Satellite, Ahmedabad",
     amount: 2499,
     method: "Card",
-    status: "success",
+    status: "confirmed",
     transactionId: "TXN987654321",
     paidAt: "Dec 17, 2024",
-    items: [
-      { name: "Sanding Disc P80", qty: 10, price: 249.9 }
-    ]
+    items: [{ name: "Sanding Disc P80", qty: 10, price: 249.9 }]
   },
   {
     id: "PAY-9003",
@@ -49,121 +44,42 @@ const paymentData = [
     address: "Plot 45, Sector 18, Gurgaon, Haryana",
     amount: 3598,
     method: "Net Banking",
-    status: "failed",
+    status: "cancelled",
     transactionId: "TXN555222111",
     paidAt: "Dec 15, 2024",
-    items: [
-      { name: "Wood Adhesive 5kg", qty: 2, price: 1799 }
-    ]
-  },
-  {
-    id: "PAY-9004",
-    orderId: "ORD-1004",
-    customer: "Sneha Joshi",
-    email: "sneha@gmail.com",
-    phone: "+91 90011 22334",
-    address: "B-501, Hill View, Kothrud, Pune",
-    amount: 1799,
-    method: "UPI",
-    status: "pending",
-    transactionId: "TXN000888777",
-    paidAt: "Dec 19, 2024",
-    items: [
-      { name: "Oak Varnish Small", qty: 1, price: 1799 }
-    ]
-  },
-  {
-    id: "PAY-9005",
-    orderId: "ORD-1005",
-    customer: "Vikram Malhotra",
-    email: "vikram@outlook.com",
-    phone: "+91 99999 88888",
-    address: "15, Marine Drive, Mumbai, Maharashtra",
-    amount: 15400,
-    method: "UPI",
-    status: "success",
-    transactionId: "TXN444333222",
-    paidAt: "Jan 05, 2025",
-    items: [
-      { name: "Premium Oak Plank", qty: 100, price: 154 }
-    ]
+    items: [{ name: "Wood Adhesive 5kg", qty: 2, price: 1799 }]
   }
 ];
 
 const Payments = () => {
-  const [payments, setPayments] = useState(paymentData);
+  const [payments] = useState(paymentData);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  /* --- BACKEND INTEGRATION (COMMENTED OUT FOR NOW) --- 
   
-  const fetchPayments = async () => {
-    try {
-      const token = localStorage.getItem("adminToken");
-      const res = await axios.get("http://localhost:5000/api/payments", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPayments(res.data.payments);
-    } catch (err) {
-      console.error("Failed to load ledger", err);
-    }
-  };
-
-  const updatePaymentStatus = async (id, newStatus) => {
-    try {
-      const token = localStorage.getItem("adminToken");
-      await axios.put(`http://localhost:5000/api/payments/${id}`, 
-        { status: newStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      fetchPayments(); // Refresh list
-    } catch (err) {
-      console.error("Status update failed", err);
-    }
-  };
-
-  useEffect(() => {
-    // fetchPayments(); 
-  }, []);
-
-  -------------------------------------------------- */
+  // Use your specific hook
+  const { toast } = useToast();
 
   const getStatusConfig = (status) => {
     switch (status) {
-      case "success":
-        return { 
-          style: "bg-emerald-50 text-emerald-700 border-emerald-100", 
-          icon: <CheckCircle2 size={12} />,
-          label: "Settled"
-        };
-      case "pending":
-        return { 
-          style: "bg-amber-50 text-amber-700 border-amber-100", 
-          icon: <Clock size={12} />,
-          label: "Awaiting"
-        };
-      case "failed":
-        return { 
-          style: "bg-rose-50 text-rose-700 border-rose-100", 
-          icon: <AlertCircle size={12} />,
-          label: "Declined"
-        };
-      default:
-        return { style: "bg-stone-100 text-stone-500 border-stone-200", icon: null, label: status };
+      case "confirmed": return { style: "bg-emerald-50 text-emerald-700 border-emerald-100", icon: <CheckCircle2 size={12} />, label: "confirmed" };
+      case "processing": return { style: "bg-amber-50 text-amber-700 border-amber-100", icon: <Clock size={12} />, label: "processing" };
+      case "cancelled": return { style: "bg-rose-50 text-rose-700 border-rose-100", icon: <AlertCircle size={12} />, label: "cancelled" };
+      default: return { style: "bg-stone-100 text-stone-500 border-stone-200", icon: null, label: status };
     }
-  };
-
-  const openDetail = (pay) => {
-    setSelectedPayment(pay);
-    setIsModalOpen(true);
   };
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+    // Using your toast trigger
+    toast({
+      title: "ID Copied",
+      description: "Transaction reference saved to clipboard.",
+      className: "bg-stone-950 text-stone-50 border border-stone-800 shadow-2xl font-serif"
+    });
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 md:p-8">
       {/* --- Header --- */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
@@ -184,8 +100,8 @@ const Payments = () => {
       </div>
 
       {/* --- Table --- */}
-      <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
-        <table className="w-full text-left">
+      <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto">
+        <table className="w-full text-left min-w-[800px]">
           <thead className="bg-stone-50 border-b border-stone-200">
             <tr>
               <th className="p-5 text-[10px] uppercase tracking-widest font-bold text-stone-400">Internal Ref</th>
@@ -194,7 +110,7 @@ const Payments = () => {
               <th className="p-5 text-[10px] uppercase tracking-widest font-bold text-stone-400">Method</th>
               <th className="p-5 text-[10px] uppercase tracking-widest font-bold text-stone-400">Amount</th>
               <th className="p-5 text-[10px] uppercase tracking-widest font-bold text-stone-400">Settlement</th>
-              <th className="p-5 text-[10px] uppercase tracking-widest font-bold text-stone-400">Gateway ID</th>
+              <th className="p-5 text-[10px] uppercase tracking-widest font-bold text-stone-400 text-right">Gateway ID</th>
             </tr>
           </thead>
 
@@ -204,19 +120,17 @@ const Payments = () => {
               return (
                 <tr key={pay.id} className="hover:bg-stone-50/50 transition-colors group">
                   <td className="p-5 font-mono text-[11px] font-bold text-stone-400">{pay.id}</td>
-                  
                   <td className="p-5">
                     <button 
-                      onClick={() => openDetail(pay)}
+                      onClick={() => { setSelectedPayment(pay); setIsModalOpen(true); }}
                       className="flex items-center gap-1.5 text-stone-900 font-bold hover:text-amber-700 transition-colors"
                     >
                       {pay.orderId} <ArrowUpRight size={12} className="text-stone-300" />
                     </button>
                   </td>
-
                   <td className="p-5">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-500 font-bold text-[10px]">
+                      <div className="h-8 w-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-500 font-bold text-[10px] uppercase">
                         {pay.customer.charAt(0)}
                       </div>
                       <div>
@@ -225,28 +139,24 @@ const Payments = () => {
                       </div>
                     </div>
                   </td>
-
                   <td className="p-5">
                     <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest border border-stone-200 px-2 py-0.5 rounded shadow-sm bg-white">
                       {pay.method}
                     </span>
                   </td>
-
                   <td className="p-5">
                     <span className="font-serif font-bold text-stone-900 flex items-center gap-0.5">
                       <IndianRupee size={12} />{pay.amount.toLocaleString('en-IN')}
                     </span>
                     <p className="text-[10px] text-stone-400 font-medium">{pay.paidAt}</p>
                   </td>
-
                   <td className="p-5">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${config.style}`}>
                       {config.icon} {config.label}
                     </span>
                   </td>
-
                   <td className="p-5">
-                    <div className="flex items-center gap-2 group/id">
+                    <div className="flex items-center justify-end gap-2 group/id">
                       <span className="text-[11px] font-mono text-stone-400 truncate max-w-[100px]">
                         {pay.transactionId}
                       </span>
@@ -271,6 +181,7 @@ const Payments = () => {
           payment={selectedPayment} 
           onClose={() => setIsModalOpen(false)} 
           config={getStatusConfig(selectedPayment.status)}
+          triggerToast={toast} // Passing the toast function
         />
       )}
     </div>
@@ -278,9 +189,28 @@ const Payments = () => {
 };
 
 /* --- MODAL COMPONENT --- */
-const PaymentDetailModal = ({ payment, onClose, config }) => {
+const PaymentDetailModal = ({ payment, onClose, config, triggerToast }) => {
+  
+  const handleRefund = () => {
+    // Using your custom hook trigger
+    triggerToast({
+      title: "Refund Issued",
+      description: `₹${payment.amount} is being returned to ${payment.customer}.`,
+className: "bg-stone-950 text-stone-50 border border-stone-800 shadow-2xl font-serif"
+
+    });
+    setTimeout(onClose, 500);
+  };
+
+  const handleDownload = () => {
+    triggerToast({
+      title: "Preparing Receipt",
+      description: `Generating PDF for ${payment.id}...`,
+    });
+  };
+
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
       <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col">
         
         {/* Header */}
@@ -300,9 +230,8 @@ const PaymentDetailModal = ({ payment, onClose, config }) => {
           </button>
         </div>
 
-        <div className="p-8 space-y-8 flex-1 overflow-y-auto">
-          {/* Section 1: Financial Summary */}
-          <div className="grid grid-cols-2 gap-4">
+        <div className="p-8 space-y-8 flex-1 overflow-y-auto max-h-[70vh]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div className="p-6 bg-stone-900 rounded-2xl text-white">
                 <p className="text-[10px] text-stone-400 font-bold uppercase mb-1">Settled Amount</p>
                 <p className="text-3xl font-serif font-bold flex items-center"><IndianRupee size={24}/> {payment.amount.toLocaleString('en-IN')}</p>
@@ -310,11 +239,10 @@ const PaymentDetailModal = ({ payment, onClose, config }) => {
              <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100">
                 <p className="text-[10px] text-amber-600 font-bold uppercase mb-1">Gateway Reference</p>
                 <p className="text-sm font-mono font-bold text-stone-800 truncate">{payment.transactionId}</p>
-                <p className="text-[10px] text-stone-500 mt-2 flex items-center gap-1 italic"><Clock size={10}/> Timestamp: {payment.paidAt}</p>
+                <p className="text-[10px] text-stone-500 mt-2 flex items-center gap-1 italic"><Clock size={10}/> {payment.paidAt}</p>
              </div>
           </div>
 
-          {/* Section 2: Order & Client Deep-Link */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <h4 className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-2">
@@ -340,19 +268,21 @@ const PaymentDetailModal = ({ payment, onClose, config }) => {
               <div className="bg-stone-50 rounded-2xl p-4 border border-stone-100">
                  <div className="flex justify-between items-center mb-4">
                     <span className="text-xs font-bold text-stone-800">{payment.orderId}</span>
-                    <button className="text-[10px] font-bold text-amber-700 uppercase flex items-center gap-1">View Order <ExternalLink size={10}/></button>
+                    <button className="text-[10px] font-bold text-amber-700 uppercase flex items-center gap-1 hover:underline">
+                      View Order <ExternalLink size={10}/>
+                    </button>
                  </div>
                  <div className="space-y-3">
                     {payment.items.map((item, i) => (
                       <div key={i} className="flex justify-between text-xs">
                         <span className="text-stone-600">x{item.qty} {item.name}</span>
-                        <span className="font-bold text-stone-800">₹{item.price * item.qty}</span>
+                        <span className="font-bold text-stone-800">₹{(item.price * item.qty).toLocaleString('en-IN')}</span>
                       </div>
                     ))}
                  </div>
                  <div className="mt-4 pt-3 border-t border-stone-200 flex justify-between">
                     <span className="text-xs font-bold text-stone-900 uppercase">Subtotal</span>
-                    <span className="text-sm font-bold text-stone-900">₹{payment.amount}</span>
+                    <span className="text-sm font-bold text-stone-900">₹{payment.amount.toLocaleString('en-IN')}</span>
                  </div>
               </div>
             </div>
@@ -361,8 +291,18 @@ const PaymentDetailModal = ({ payment, onClose, config }) => {
 
         {/* Footer Actions */}
         <div className="px-8 py-5 bg-stone-50 border-t border-stone-100 flex justify-end gap-3">
-          <button className="px-5 py-2.5 rounded-xl border border-stone-200 text-[10px] font-bold uppercase text-stone-600 hover:bg-white transition-all">Download Receipt</button>
-          <button className="px-5 py-2.5 rounded-xl bg-stone-900 text-amber-500 text-[10px] font-bold uppercase hover:bg-stone-800 transition-all shadow-lg shadow-stone-200">Issue Refund</button>
+          <button 
+            onClick={handleDownload}
+            className="px-5 py-2.5 rounded-xl border border-stone-200 text-[10px] font-bold uppercase text-stone-600 hover:bg-white transition-all flex items-center gap-2"
+          >
+            <Download size={14} /> Download Receipt
+          </button>
+          <button 
+            onClick={handleRefund}
+            className="px-5 py-2.5 rounded-xl bg-stone-900 text-amber-500 text-[10px] font-bold uppercase hover:bg-stone-800 transition-all shadow-lg shadow-stone-200 flex items-center gap-2"
+          >
+            <RefreshCcw size={14} /> Issue Refund
+          </button>
         </div>
       </div>
     </div>

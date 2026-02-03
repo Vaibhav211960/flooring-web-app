@@ -11,7 +11,6 @@ export const createOrder = async (req, res) => {
     if (!items || items.length === 0 || !netBill || !paymentMode) {
       return res.status(400).json({ message: "Invalid order data" });
     }
-
     // Optional: reduce product stock
     for (const item of items) {
       const product = await Product.findById(item.productId);

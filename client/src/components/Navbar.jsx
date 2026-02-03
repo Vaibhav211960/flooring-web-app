@@ -27,7 +27,7 @@ export default function Navbar() {
   const [user, setUser] = useState(null); // Real User State
   const [loading, setLoading] = useState(false);
 
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("UserToken");
   const isLogged = !!token;
 
   const dashboardRef = useRef(null);
@@ -87,7 +87,7 @@ export default function Navbar() {
   }, [location]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem("UserToken");
     setUser(null);
     setDashboard(false);
     navigate("/");
@@ -161,7 +161,7 @@ export default function Navbar() {
                 </div>
                 {/* Dynamically show name */}
                 <span className="text-sm font-medium text-stone-700 max-w-[80px] truncate">
-                  {user?.name || "Profile"}
+                  {user?.userName || "Profile"}
                 </span>
               </Button>
 

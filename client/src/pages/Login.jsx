@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Eye,
@@ -16,12 +16,10 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-
 import { useToast } from "../hooks/useToast.jsx";
 
 export default function Login() {
   const navigate = useNavigate();
-  // const { login } = useApp(); // Context method to update global user state
   const { toast } = useToast();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -29,44 +27,92 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const location = useLocation();
+
+  const validate = (field, value) => {
+    if (field === "email") {
+      if (!value.trim()) return "Email is required.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+        return "Please enter a valid email address.";
+    }
+    if (field === "password") {
+      if (!value.trim()) return "Password is required.";
+      if (value.length < 6)
+        return "Password must be at least 6 characters long.";
+    }
+    return "";
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    setError(validate("email", value));
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    setError(validate("password", value));
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError("");
 
-    if (!email || !password) {
-      setError("Please enter your login details.");
+    const emailError = validate("email", email);
+    const passwordError = validate("password", password);
+
+    if (emailError || passwordError) {
+      const firstError = emailError || passwordError;
+      setError(firstError);
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: firstError,
+        className: "bg-stone-950 border border-stone-800 text-red rounded-xl shadow-2xl p-6",
+      });
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const payload = {
-        email,
-        password,
-      };
       const response = await axios.post(
-        "http://localhost:5000/api/users/login", // Argument 1: URL
-        payload, // Argument 2: Data
+        "http://localhost:5000/api/users/login",
+        { email, password },
       );
-      console.log(response.data);
-      const { token } = response.data;
 
-      localStorage.setItem("token", token);
-      console.log(token);
-      navigate("/");
+      const { token } = response.data;
+      localStorage.setItem("UserToken", token);
+
+      toast({
+        title: "Success",
+        description: "You have been logged in successfully.",
+        className: "bg-stone-950 border border-stone-800 text-white rounded-xl shadow-2xl p-6",
+      });
+      setTimeout(() => navigate("/"), 1000);
     } catch (err) {
-      // Handle various error scenarios from the backend
-      const message =
-        err.response?.data?.message || "Invalid credentials. Please try again.";
-      setError(message);
+      const status = err.response?.status;
+      const serverMessage = err.response?.data?.message;
+
+      let toastTitle = "Login Failed";
+      let displayMessage =
+        serverMessage || "Invalid credentials. Please try again.";
+
+      if (status === 404) {
+        toastTitle = "User Not Found";
+        displayMessage = "No account exists with this email address.";
+      } else if (status === 401) {
+        toastTitle = "Incorrect Password";
+        displayMessage = "The password you entered is incorrect.";
+      }
+
+      setError(displayMessage);
 
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: message,
+        title: toastTitle,
+        description: displayMessage,
+        className:
+          "bg-stone-950 border border-stone-800 text-white rounded-xl shadow-2xl p-6",
       });
     } finally {
       setIsLoading(false);
@@ -77,7 +123,6 @@ export default function Login() {
     <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900">
       <Navbar />
 
-      {/* Header Section */}
       <section className="bg-stone-900 text-stone-50 border-b border-amber-900/20">
         <div className="container max-w-7xl mx-auto px-6 py-12 md:py-16 text-center">
           <nav className="flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 mb-6">
@@ -96,13 +141,11 @@ export default function Login() {
             Welcome <span className="italic text-amber-500">Back</span>
           </h1>
           <p className="text-stone-400 text-sm max-w-lg mx-auto leading-relaxed">
-            Sign in to track your orders, manage your delivery addresses, and
-            view your saved collections.
+            Sign in to track your orders and manage your account.
           </p>
         </div>
       </section>
 
-      {/* Form Section */}
       <div className="flex-1 flex flex-col items-center justify-center py-16 px-6">
         <div className="w-full max-w-[450px] bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden">
           <div className="p-8 md:p-10">
@@ -114,42 +157,41 @@ export default function Login() {
 
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                <Label
+                  htmlFor="email"
+                  className="text-[10px] uppercase tracking-widest font-bold text-stone-500"
+                >
                   Email Address
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3.5 h-4 w-4 text-stone-400" />
                   <Input
+                    id="email"
                     type="email"
-                    placeholder="example@mail.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-12 bg-stone-50 border-stone-200 rounded-xl focus:ring-amber-500/20 focus:border-amber-500 transition-all shadow-none"
+                    onChange={handleEmailChange}
+                    className="pl-10 h-12 bg-stone-50 border-stone-200 rounded-xl"
+                    placeholder="name@example.com"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
-                    Password
-                  </Label>
-                  <Link
-                    to="/forgot-password"
-                    size="sm"
-                    className="text-[10px] text-amber-700 font-bold hover:underline"
-                  >
-                    Forgot?
-                  </Link>
-                </div>
+                <Label
+                  htmlFor="password"
+                  className="text-[10px] uppercase tracking-widest font-bold text-stone-500"
+                >
+                  Password
+                </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3.5 h-4 w-4 text-stone-400" />
                   <Input
+                    id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-12 h-12 bg-stone-50 border-stone-200 rounded-xl focus:ring-amber-500/20 focus:border-amber-500 transition-all shadow-none"
+                    onChange={handlePasswordChange}
+                    className="pl-10 pr-12 h-12 bg-stone-50 border-stone-200 rounded-xl"
                     required
                   />
                   <button
@@ -160,10 +202,19 @@ export default function Login() {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                {/* --- FORGOT PASSWORD ELEMENT --- */}
+                <div className="flex justify-end pt-1">
+                  <Link
+                    to="/forgot-password"
+                    className="text-[10px] uppercase tracking-widest font-bold text-amber-700 hover:text-amber-800 transition-colors"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-100 p-3 rounded-xl flex items-center gap-2 animate-in fade-in zoom-in duration-200">
+                <div className="bg-red-50 border border-red-100 p-3 rounded-xl flex items-center gap-2">
                   <p className="text-[11px] text-red-600 font-medium">
                     {error}
                   </p>
@@ -171,36 +222,13 @@ export default function Login() {
               )}
 
               <Button
-                className="w-full h-14 bg-stone-900 text-white hover:bg-stone-800 rounded-xl font-bold uppercase tracking-widest shadow-lg shadow-stone-200 transition-all active:scale-[0.98]"
+                className="w-full h-14 bg-stone-900 text-white hover:bg-stone-800 rounded-xl font-bold uppercase tracking-widest"
                 disabled={isLoading}
                 type="submit"
               >
-                {isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Authenticating...
-                  </div>
-                ) : (
-                  "Sign In"
-                )}
+                {isLoading ? "Authenticating..." : "Sign In"}
               </Button>
             </form>
-
-            <div className="mt-8 pt-8 border-t border-stone-100 flex flex-col items-center gap-4 text-center">
-              <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">
-                Are you an admin?
-              </p>
-              <Link
-                to="/admin/login"
-                className="group flex items-center gap-2 px-6 py-2.5 border border-stone-200 rounded-full text-[10px] font-bold uppercase tracking-widest text-stone-600 hover:bg-stone-50 hover:border-stone-300 transition-all"
-              >
-                <UserCircle
-                  size={14}
-                  className="group-hover:text-amber-600 transition-colors"
-                />
-                Switch to Admin Portal
-              </Link>
-            </div>
           </div>
 
           <div className="bg-stone-50 p-6 border-t border-stone-100 text-center">
@@ -216,7 +244,6 @@ export default function Login() {
           </div>
         </div>
       </div>
-
       <Footer />
     </div>
   );

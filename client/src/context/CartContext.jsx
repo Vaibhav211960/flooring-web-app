@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
-import { toast } from "sonner";
+import { useToast } from "../hooks/useToast";
 
 /* -------------------- CONTEXT SETUP -------------------- */
 
@@ -13,42 +13,42 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [cartTotal, setCartTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const token = localStorage.getItem("UserToken");
   const API_BASE_URL = "http://localhost:5000/api/cart";
 
+  /* -------------------- THEME CONSTANTS -------------------- */
+  // Consistent black theme styling for toasts
+  const darkToastStyles = "bg-stone-950 text-stone-50 border border-stone-800 shadow-2xl font-serif";
+
   /* -------------------- HELPERS -------------------- */
 
-  // Auth header for every request
   const getAuthHeaders = () => ({
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
-  // Convert backend cart items into UI-friendly format
   const formatCartItems = (items) =>
     items.map((item) => ({
       _id: item.productId?._id,
-      name: item.productId?.productName,
-      image: item.productId?.productImg,
+      name: item.productId?.name,
+      image: item.productId?.image,
       price: item.price,
       quantity: item.quantity,
       total: item.total,
     }));
 
-  /* -------------------- FETCH CART -------------------- */
+  /* -------------------- ACTIONS -------------------- */
 
   const fetchCart = async () => {
     if (!token) return;
-
     setIsLoading(true);
     try {
       const res = await axios.get(API_BASE_URL, getAuthHeaders());
       setCartItems(formatCartItems(res.data.items));
       setCartTotal(res.data.cartTotal);
     } catch (error) {
-      console.error("Error fetching cart", error);
+      console.error("Vault Sync Error", error);
     } finally {
       setIsLoading(false);
     }
@@ -58,15 +58,17 @@ export const CartProvider = ({ children }) => {
     fetchCart();
   }, [token]);
 
-  /* -------------------- ADD TO CART -------------------- */
-
   const addToCart = async (product, quantity = 1) => {
     if (!token) {
-      toast.error("Please login to curate your collection");
+      toast({
+        title: "ACCESS DENIED",
+        description: "Please login to curate your collection.",
+        variant: "destructive",
+        className: darkToastStyles,
+      });
       return;
     }
 
-    setIsLoading(true);
     try {
       const res = await axios.post(
         `${API_BASE_URL}/add`,
@@ -76,15 +78,21 @@ export const CartProvider = ({ children }) => {
 
       setCartItems(formatCartItems(res.data.items));
       setCartTotal(res.data.cartTotal);
-      toast.success(`${product.name} added to collection`);
+      
+      toast({
+        title: "COLLECTION UPDATED",
+        description: `${product.name} added to vault.`,
+        className: `${darkToastStyles} border-l-4 border-l-amber-600`,
+      });
     } catch (error) {
-      toast.error("Failed to sync with server");
-    } finally {
-      setIsLoading(false);
+      toast({
+        title: "SYNC FAILED",
+        description: "Unable to reach server. Check connection.",
+        variant: "destructive",
+        className: darkToastStyles,
+      });
     }
   };
-
-  /* -------------------- REMOVE FROM CART -------------------- */
 
   const removeFromCart = async (productId) => {
     try {
@@ -95,12 +103,21 @@ export const CartProvider = ({ children }) => {
 
       setCartItems(formatCartItems(res.data.items));
       setCartTotal(res.data.cartTotal);
+      
+      toast({
+        title: "MANIFEST UPDATED",
+        description: "Item removed from collection.",
+        className: darkToastStyles,
+      });
     } catch (error) {
-      toast.error("Removal failed");
+      toast({
+        title: "ERROR",
+        description: "Removal unsuccessful.",
+        variant: "destructive",
+        className: darkToastStyles,
+      });
     }
   };
-
-  /* -------------------- UPDATE QUANTITY -------------------- */
 
   const updateQuantity = async (productId, quantity) => {
     if (quantity < 1) {
@@ -118,22 +135,20 @@ export const CartProvider = ({ children }) => {
       setCartItems(formatCartItems(res.data.items));
       setCartTotal(res.data.cartTotal);
     } catch (error) {
-      console.error("Update failed", error);
+      toast({
+        title: "UPDATE ERROR",
+        description: "Quantity sync failed.",
+        variant: "destructive",
+        className: darkToastStyles,
+      });
     }
   };
 
-  /* -------------------- UTIL FUNCTIONS -------------------- */
+  /* -------------------- UTILS -------------------- */
 
-  const getCartItemCount = () =>
-    cartItems.reduce((total, item) => total + item.quantity, 0);
-
-  const isInCart = (productId) =>
-    cartItems.some((item) => item._id === productId);
-
-  const getItemQuantity = (productId) =>
-    cartItems.find((item) => item._id === productId)?.quantity || 0;
-
-  /* -------------------- PROVIDER VALUE -------------------- */
+  const getCartItemCount = () => cartItems.reduce((total, item) => total + item.quantity, 0);
+  const isInCart = (productId) => cartItems.some((item) => item._id === productId);
+  const getItemQuantity = (productId) => cartItems.find((item) => item._id === productId)?.quantity || 0;
 
   return (
     <CartContext.Provider

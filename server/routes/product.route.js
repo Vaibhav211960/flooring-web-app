@@ -19,8 +19,8 @@ router.get("/:id", getProductById);
 router.get("/subcategory/:catId", getProductsBySubCategory);
 
 // admin
-router.post("/create", adminAuth, createProduct);
-router.put("/:id", adminAuth, updateProduct);
-router.delete("/:id", adminAuth, deleteProduct);
+router.post("/create", createProduct);
+router.put("/:id", updateProduct);
+router.delete("/:id", deleteProduct);
 
 export default router;

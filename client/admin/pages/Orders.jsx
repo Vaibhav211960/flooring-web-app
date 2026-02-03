@@ -9,16 +9,15 @@ const Orders = () => {
   const [orders, setOrders] = useState([
     {
       _id: "ORD678901",
-      customerName: "Arjun Mehta",
-      customerEmail: "arjun.m@example.com",
+      customerName: "john snow",
+      customerEmail: "john123@example.com",
       customerPhone: "+91 98765 43210",
-      address: "Flat 402, Heritage Enclave, Banjara Hills, Hyderabad, Telangana - 500034",
-      totalAmount: 45200,
+      address: "d-102 , nikol gam , ahmedabad",
+      totalAmount: 1819,
       status: "Pending",
       createdAt: "2026-01-18T10:30:00Z",
       items: [
-        { productName: "Premium Oak Plank", quantity: 200, price: 150, unit: "sqft", woodType: "Oak" },
-        { productName: "Finishing Wax", quantity: 2, price: 7600, unit: "box", woodType: "N/A" }
+        { productName: "digital wall tiles", quantity: 16, price: 95, unit: "sqft", woodType: "Oak" },
       ]
     },
     {
