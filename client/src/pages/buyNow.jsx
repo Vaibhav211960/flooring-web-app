@@ -122,30 +122,25 @@ export default function BuyNow() {
 
     setIsPlacingOrder(true);
 
-    // Prepare data for the Payment page
-    const checkoutData = {
-      items: [{
-        productId: product._id,
-        productName: product.name,
-        pricePerUnit: product.price,
-        units: units,
-        totalAmount: financialData.subtotal
-      }],
-      form: form,
-      netBill: financialData.netBill
-    };
+   // 1. Capture the final state of data
+const checkoutData = {
+  items: [{
+    productId: product._id,
+    productName: product.name,
+    pricePerUnit: product.price,
+    units: units,
+    totalAmount: financialData.subtotal
+  }],
+  form: form, // Changed from shippingAddress to form to match Payment.js state
+  netBill: financialData.netBill, // Simplified to match what Payment.js destructured
+  financials: financialData // Kept just in case you need extra details later
+};
+localStorage.setItem("checkout_details", JSON.stringify(checkoutData));
 
-    // Transition Logic
-    setTimeout(() => {
-      toast({
-        title: "ADDRESS SAVED",
-        description: "Redirecting to secure payment gateway...",
-        className: "bg-stone-950 border-stone-800 text-white rounded-xl shadow-2xl p-6",
-      });
-      
-      // Navigate to your Payment component with the data
-      navigate("/checkout/payment", { state: checkoutData });
-    }, 800);
+  setTimeout(() => {
+    toast({ title: "ADDRESS SAVED", description: "Proceeding to secure payment gateway.", className: "bg-stone-950 border-stone-800 text-white rounded-xl shadow-2xl p-6" });
+    navigate("/checkout/payment", { state: checkoutData });
+  }, 800);
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-stone-50"><Loader2 className="animate-spin text-amber-700" /></div>;

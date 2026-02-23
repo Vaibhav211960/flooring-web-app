@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
-import { 
-  CreditCard, 
-  Smartphone, 
-  Truck, 
-  ShieldCheck, 
+import {
+  CreditCard,
+  Smartphone,
+  Truck,
+  ShieldCheck,
   Lock,
-  ChevronLeft 
+  ChevronLeft,
 } from "lucide-react";
 
 import { Button } from "../ui/button";
@@ -24,37 +24,89 @@ export default function Payment() {
 
   // 1. ACCESS THE DATA FROM STATE
   // We use optional chaining and default values to prevent crashes if state is empty
-  const { items, form, netBill } = location.state || {};
-
+// At the top of your component, change this:
+const [orderData, setOrderData] = useState(location.state || JSON.parse(localStorage.getItem("checkout_details")));
+const { items, form, netBill } = orderData || {};
   const [isLoading, setIsLoading] = useState(false);
   const [paymentMode, setPaymentMode] = useState("UPI");
 
-  // Redirect back if user tries to access payment page directly without order data
-  useEffect(() => {
-    if (!items || !netBill) {
-      navigate("/cart");
-    }
-  }, [items, netBill, navigate]);
+  // Inside Payment() component
 
-  const handleFinalizeOrder = async (e) => {
+useEffect(() => {
+  if (!orderData) {
+    toast({ title: "Session Expired", description: "Please restart the checkout." });
+    navigate("/products");
+  }
+}, [orderData]);
+
+  // // Redirect back if user tries to access payment page directly without order data
+  // useEffect(() => {
+  //   if (!items || !netBill) {
+  //     navigate("/cart");
+  //   }
+  // }, [items, netBill, navigate]);
+const handleFinalizeOrder = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
+    try {
+      // 1. Double check we have data
+      const savedData = JSON.parse(localStorage.getItem("checkout_details"));
+      const userToken = localStorage.getItem("UserToken");
 
-      toast({
-        title: "ORDER PLACED",
-        description: "Your transaction has been confirmed.",
-        className: "bg-stone-950 border border-stone-800 text-white rounded-xl p-6",
-      });
-      navigate("/order-success", { state: {  items , form , netBill } });
+      if (!savedData || !userToken) {
+        throw new Error("Missing session data. Please login again.");
+      }
+
+      // 2. Exact mapping for your Enums
+      const schemaMode = paymentMode.toLowerCase() === "net banking" ? "card" : paymentMode.toLowerCase();
+
+      // 3. Match the Backend Controller expectations perfectly
+      const orderPayload = {
+        items: savedData.items,
+        shippingAddress: savedData.form, // Ensure BuyNow.js saves address under 'form'
+        netBill: savedData.netBill,      // Ensure BuyNow.js saves netBill at top level
+        paymentMode: paymentMode,        // "UPI", "COD", etc.
+        paymentMethod: schemaMode,       // "upi", "cod", "card"
+      };
+
+      const response = await axios.post(
+        "http://localhost:5000/api/orders/place",
+        orderPayload,
+        { headers: { Authorization: `Bearer ${userToken}` } }
+      );
+
+      if (response.status === 201 || response.status === 200) {
+        // Consistent Premium Toaster
+        toast({
+          title: "TRANSACTION SECURED",
+          description: "Your order has been logged in our system.",
+          className: "bg-stone-950 border border-stone-800 text-white rounded-xl p-6 shadow-2xl",
+        });
+
+        localStorage.removeItem("checkout_details");
+        localStorage.removeItem("pending_product");
+
+        navigate("/order-success", {
+          state: {
+            order: response.data.order,
+            payment: response.data.payment,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("DEBUG ORDER ERROR:", error.response?.data || error.message);
       
-    //   toast({
-    //     title: "TRANSACTION FAILED",
-    //     description: error.response?.data?.message || "Payment gateway connection error.",
-    //     variant: "destructive",
-    //     className: "bg-stone-950 border border-stone-800 text-white rounded-xl p-6",
-    //   });
-    //   setIsLoading(false);
+      // Error Toaster - Styled consistently
+      toast({
+        title: "ORDER DECLINED",
+        description: error.response?.data?.message || "Verify your connection and try again.",
+        variant: "destructive",
+        className: "bg-red-950 border border-red-900 text-white rounded-xl p-6 shadow-2xl",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -63,8 +115,8 @@ export default function Payment() {
 
       <section className="bg-stone-900 text-stone-50 border-b border-amber-900/20 py-10">
         <div className="container max-w-7xl mx-auto px-6">
-          <button 
-            onClick={() => navigate(-1)} 
+          <button
+            onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-stone-400 hover:text-amber-500 transition-colors mb-4 text-xs uppercase tracking-widest"
           >
             <ChevronLeft size={14} /> Back to Shipping
@@ -76,38 +128,39 @@ export default function Payment() {
       </section>
 
       <div className="flex-1 container max-w-6xl mx-auto py-12 px-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
         {/* LEFT: PAYMENT OPTIONS */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl border border-stone-200 p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-8">
               <ShieldCheck className="text-amber-600" />
-              <h3 className="font-bold uppercase tracking-widest text-sm">Select Secure Method</h3>
+              <h3 className="font-bold uppercase tracking-widest text-sm">
+                Select Secure Method
+              </h3>
             </div>
 
-            <RadioGroup 
-              value={paymentMode} 
+            <RadioGroup
+              value={paymentMode}
               onValueChange={setPaymentMode}
               className="grid gap-4"
             >
-              <PaymentCard 
-                id="UPI" 
-                icon={<Smartphone className="text-stone-600" />} 
-                title="UPI Transfer" 
+              <PaymentCard
+                id="UPI"
+                icon={<Smartphone className="text-stone-600" />}
+                title="UPI Transfer"
                 description="Google Pay, PhonePe, or BHIM"
                 current={paymentMode}
               />
-              <PaymentCard 
-                id="Net Banking" 
-                icon={<CreditCard className="text-stone-600" />} 
-                title="Net Banking" 
+              <PaymentCard
+                id="Net Banking"
+                icon={<CreditCard className="text-stone-600" />}
+                title="Net Banking"
                 description="Secure transfer from all major banks"
                 current={paymentMode}
               />
-              <PaymentCard 
-                id="COD" 
-                icon={<Truck className="text-stone-600" />} 
-                title="Cash on Delivery" 
+              <PaymentCard
+                id="COD"
+                icon={<Truck className="text-stone-600" />}
+                title="Cash on Delivery"
                 description="Pay in cash upon delivery"
                 current={paymentMode}
               />
@@ -116,33 +169,47 @@ export default function Payment() {
 
           {/* Shipping Summary Reveal */}
           <div className="bg-stone-100/50 rounded-xl p-6 border border-dashed border-stone-300">
-            <h4 className="text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-2">Shipping To:</h4>
-            <p className="text-sm font-medium text-stone-700">{form?.address}, {form?.city} - {form?.zipCode}</p>
+            <h4 className="text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-2">
+              Shipping To:
+            </h4>
+            <p className="text-sm font-medium text-stone-700">
+              {form?.address}, {form?.city} - {form?.zipCode}
+            </p>
           </div>
         </div>
 
         {/* RIGHT: TOTAL BOX */}
         <div className="lg:col-span-1">
           <div className="bg-stone-900 text-stone-50 rounded-2xl p-8 sticky top-24 shadow-2xl">
-            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-amber-500 mb-6 border-b border-stone-800 pb-4">Billing Summary</h3>
-            
+            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-amber-500 mb-6 border-b border-stone-800 pb-4">
+              Billing Summary
+            </h3>
+
             <div className="space-y-4 mb-8">
               <div className="flex justify-between text-sm">
-                <span className="text-stone-400">Items ({items?.length || 0})</span>
+                <span className="text-stone-400">
+                  Items ({items?.length || 0})
+                </span>
                 <span className="font-mono text-stone-300">₹{netBill}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-stone-400">Processing Fee</span>
-                <span className="text-green-500 uppercase text-[10px] tracking-tighter">Waived</span>
+                <span className="text-green-500 uppercase text-[10px] tracking-tighter">
+                  Waived
+                </span>
               </div>
             </div>
 
             <div className="flex justify-between items-end mb-10">
-              <span className="text-xs font-bold uppercase tracking-widest">Net Bill</span>
-              <span className="text-4xl font-serif text-amber-500">₹{netBill}</span>
+              <span className="text-xs font-bold uppercase tracking-widest">
+                Net Bill
+              </span>
+              <span className="text-4xl font-serif text-amber-500">
+                ₹{netBill}
+              </span>
             </div>
 
-            <Button 
+            <Button
               onClick={handleFinalizeOrder}
               disabled={isLoading}
               className="w-full h-14 bg-amber-600 hover:bg-amber-500 text-white font-bold uppercase tracking-widest transition-all rounded-xl"
@@ -165,20 +232,30 @@ export default function Payment() {
 function PaymentCard({ id, icon, title, description, current }) {
   const isActive = current === id;
   return (
-    <Label 
-      htmlFor={id} 
+    <Label
+      htmlFor={id}
       className={`flex items-center justify-between p-5 rounded-xl border-2 transition-all cursor-pointer ${
-        isActive ? 'border-amber-600 bg-amber-50/50' : 'border-stone-100 hover:border-stone-200 bg-stone-50/30'
+        isActive
+          ? "border-amber-600 bg-amber-50/50"
+          : "border-stone-100 hover:border-stone-200 bg-stone-50/30"
       }`}
     >
       <div className="flex items-center gap-4">
-        <div className="p-2 bg-white rounded-lg border border-stone-100 shadow-sm">{icon}</div>
+        <div className="p-2 bg-white rounded-lg border border-stone-100 shadow-sm">
+          {icon}
+        </div>
         <div>
           <p className="font-bold text-sm text-stone-900">{title}</p>
-          <p className="text-[10px] text-stone-500 uppercase tracking-tight">{description}</p>
+          <p className="text-[10px] text-stone-500 uppercase tracking-tight">
+            {description}
+          </p>
         </div>
       </div>
-      <RadioGroupItem value={id} id={id} className="border-stone-300 text-amber-600" />
+      <RadioGroupItem
+        value={id}
+        id={id}
+        className="border-stone-300 text-amber-600"
+      />
     </Label>
   );
 }

@@ -8,11 +8,12 @@ import {
   updateOrderStatus,
   deleteOrder,
 } from "../controller/order.controller.js";
+import verifyToken from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
 // customer
-router.post("/create", createOrder);
+router.post("/place", verifyToken, createOrder);
 router.get("/my", getMyOrders);
 router.get("/:id", getOrderById);
 router.put("/:id/cancel", cancelOrder);

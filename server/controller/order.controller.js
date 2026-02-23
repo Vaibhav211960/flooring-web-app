@@ -1,48 +1,53 @@
 import Order from "../model/order.model.js";
 import Product from "../model/product.model.js";
+import Payment from "../model/payment.model.js"; // Import your payment model
+import mongoose from "mongoose";
 
 /**
  * CUSTOMER: Place an order
  */
+
 export const createOrder = async (req, res) => {
   try {
-    const { userId, items, netBill, paymentMode } = req.body;
+    const { items, netBill, paymentMode, shippingAddress, paymentMethod } = req.body;
 
-    if (!items || items.length === 0 || !netBill || !paymentMode) {
-      return res.status(400).json({ message: "Invalid order data" });
-    }
-    // Optional: reduce product stock
-    for (const item of items) {
-      const product = await Product.findById(item.productId);
-      if (!product) {
-        return res.status(404).json({
-          message: `Product not found: ${item.productName}`,
-        });
-      }
+    // FETCH USER ID SECURELY
+    const userId = req.user._id; 
 
-      if (product.productQuantity < item.units) {
-        return res.status(400).json({
-          message: `Insufficient stock for ${item.productName}`,
-        });
-      }
-
-      product.productQuantity -= item.units;
-      await product.save();
+    if (!userId) {
+      return res.status(401).json({ message: "User authentication failed" });
     }
 
+    // ... (Stock check logic here) ...
+
+    // 1. Create Payment first
+    const newPayment = await Payment.create({
+      paymentMode: paymentMethod, 
+      amount: netBill,
+      paymentStatus: paymentMode === "COD" ? "processing" : "confirmed",
+      orderId: new mongoose.Types.ObjectId(), // Placeholder
+    });
+
+    // 2. Create Order with the SECURED userId
     const order = await Order.create({
-      userId,
+      userId, // Now it's guaranteed!
       items,
+      shippingAddress,
       netBill,
       paymentMode,
+      paymentId: newPayment._id,
+      orderStatus: "pending"
     });
 
-    res.status(201).json({
-      message: "Order placed successfully",
-      order,
-    });
+    // 3. Link Payment to the real Order ID
+    newPayment.orderId = order._id;
+    await newPayment.save();
+
+    res.status(201).json({ message: "Order placed successfully", order });
+
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Order Error:", err);
+    res.status(500).json({ message: "Server error during order placement" });
   }
 };
 
