@@ -21,8 +21,29 @@ const Cart = () => {
   const deliveryCharge = (subtotal >= 10000 || subtotal === 0) ? 0 : 499;
   const totalPayable = subtotal - discountData.amt + deliveryCharge;
 
-  // 1. ADDED: Loading State Handler
-  // Prevents "Empty Cart" message from showing while the database is being queried
+  // --- NEW: THE SNAPSHOT LOGIC ---
+  const handleProceedToCheckout = () => {
+    setIsCheckingOut(true);
+
+    // 1. Create the specific products object snapshot
+    const productsSnapshot = cartItems.map(item => ({
+      productId: item._id,   // Ensure this matches your backend field
+      name: item.name,
+      image: item.image,
+      price: item.price,
+      quantity: item.quantity,
+      total: item.total
+    }));
+
+    // 2. Store it in localStorage for the Shipment page to find
+    localStorage.setItem("checkout_products", JSON.stringify(productsSnapshot));
+
+    // 3. Move to the Shipment page (ensure this route matches your setup)
+    navigate('/buy-all'); 
+    
+    setIsCheckingOut(false);
+  };
+
   if (isLoading && cartItems.length === 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50">
@@ -50,7 +71,6 @@ const Cart = () => {
   return (
     <div className="bg-stone-50 min-h-screen pb-20">
       <div className="container mx-auto px-6 py-12">
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 border-b border-stone-200 pb-6">
           <div>
             <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-stone-400 hover:text-amber-700 mb-4 transition-colors">
@@ -62,13 +82,11 @@ const Cart = () => {
              <p className="text-stone-500 font-serif italic mt-2 md:mt-0">
                 {getCartItemCount()} curated item{getCartItemCount() !== 1 ? 's' : ''}
               </p>
-              {/* 2. ADDED: Visual indicator if the cart is syncing in the background */}
               {isLoading && <span className="text-[8px] text-amber-600 animate-pulse uppercase tracking-tighter">Updating Server...</span>}
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* LEFT: Items List */}
           <div className="lg:col-span-8 space-y-2">
             <div className="hidden md:grid grid-cols-12 px-4 mb-4 text-[10px] uppercase tracking-widest font-bold text-stone-400">
               <div className="col-span-6">Product Specification</div>
@@ -88,7 +106,6 @@ const Cart = () => {
             </button>
           </div>
 
-          {/* RIGHT: Summary Card */}
           <div className="lg:col-span-4">
             <div className="bg-white border border-stone-200 p-8 sticky top-28 shadow-sm">
               <h2 className="text-lg font-serif font-bold text-stone-900 mb-6 border-b border-stone-100 pb-4">Order Summary</h2>
@@ -117,8 +134,9 @@ const Cart = () => {
                 <span className="text-2xl font-mono font-bold text-amber-800">₹{Math.round(totalPayable).toLocaleString()}</span>
               </div>
 
+              {/* UPDATED BUTTON: Calls our new snapshot function */}
               <Button
-                onClick={() => navigate('/buy-all', { state: { items: cartItems } })}
+                onClick={handleProceedToCheckout}
                 disabled={isCheckingOut || isLoading}
                 className="w-full bg-stone-900 hover:bg-stone-800 text-white h-14 rounded-none font-bold uppercase tracking-[0.2em] text-[11px]"
               >

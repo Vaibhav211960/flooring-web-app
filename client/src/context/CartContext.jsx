@@ -119,6 +119,16 @@ export const CartProvider = ({ children }) => {
     }
   };
 
+  const clearCart = async () => {
+  try {
+    await axios.delete(`${API_BASE_URL}/clear`, getAuthHeaders());
+    setCartItems([]);
+    setCartTotal(0);
+  } catch (error) {
+    console.error("Failed to clear vault", error);
+  }
+};
+
   const updateQuantity = async (productId, quantity) => {
     if (quantity < 1) {
       removeFromCart(productId);
@@ -159,6 +169,7 @@ export const CartProvider = ({ children }) => {
         addToCart,
         removeFromCart,
         updateQuantity,
+        clearCart,
         getCartItemCount,
         isInCart,
         getItemQuantity,

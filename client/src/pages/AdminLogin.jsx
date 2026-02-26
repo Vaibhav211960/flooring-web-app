@@ -20,7 +20,7 @@ const AdminLogin = () => {
 
       // If successful
       localStorage.setItem("token", res.data.token);
-      console.log(res.data.token);
+      console.log("Admin Login Token:", res.data.token);
       
       alert("Welcome back to the Studio Registry.");
       navigate("/admin");

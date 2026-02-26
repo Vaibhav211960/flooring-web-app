@@ -56,11 +56,14 @@ export const createOrder = async (req, res) => {
  */
 export const getMyOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.user.id })
+    // Mongoose uses _id by default. 
+    // Since req.user is a Mongoose document, .id is a virtual for ._id
+    const orders = await Order.find({ userId: req.user._id })
       .sort({ createdAt: -1 });
-
+      
     res.status(200).json({ orders });
   } catch (err) {
+    console.error("Order Fetch Error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -122,13 +125,25 @@ export const cancelOrder = async (req, res) => {
  */
 export const getAllOrders = async (req, res) => {
   try {
+    // 1. Fetching all orders
+    // 2. Populating userId (Optional: only if you need extra user info not in the shippingAddress)
+    // 3. Sorting by newest first
     const orders = await Order.find()
-      .populate("userId", "userName email")
-      .sort({ createdAt: -1 });
+      // .populate("userId", "name email") 
+      // .sort({ createdAt: -1 });
 
-    res.status(200).json({ orders });
+    // 4. Return as an object for better frontend parsing
+    res.status(200).json({ 
+      success: true,
+      count: orders.length,
+      orders 
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("ADMIN_ORDER_FETCH_ERROR:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Industrial registry could not be retrieved." 
+    });
   }
 };
 
