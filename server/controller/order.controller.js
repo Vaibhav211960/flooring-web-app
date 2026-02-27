@@ -125,26 +125,30 @@ export const cancelOrder = async (req, res) => {
  */
 export const getAllOrders = async (req, res) => {
   try {
-    // 1. Fetching all orders
-    // 2. Populating userId (Optional: only if you need extra user info not in the shippingAddress)
-    // 3. Sorting by newest first
+    // 1. Consider adding pagination via query params (e.g., ?page=1&limit=20)
+  
+    // 2. Execution with sorting and population
     const orders = await Order.find()
-      // .populate("userId", "name email") 
-      // .sort({ createdAt: -1 });
+      .populate("userId", "name email") // Very helpful for admin dashboards
+      .sort({ createdAt: -1 })
 
-    // 4. Return as an object for better frontend parsing
+    // 3. Optional: Get total count for frontend pagination UI
+    // const totalOrders = await Order.countDocuments();
+
     res.status(200).json({ 
       success: true,
       count: orders.length,
       orders 
     });
   } catch (err) {
-    console.error("ADMIN_ORDER_FETCH_ERROR:", err.message);
+    // 4. Improved logging
+    console.error(`[ADMIN_ORDER_FETCH_ERROR]: ${err.stack}`);
     res.status(500).json({ 
       success: false, 
-      message: "Industrial registry could not be retrieved." 
+      message: "Server error: Unable to retrieve orders." 
     });
   }
+  // res.status(200).json({ message: "Admin order retrieval endpoint - implementation pending" });
 };
 
 /**
@@ -152,40 +156,64 @@ export const getAllOrders = async (req, res) => {
  */
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { orderStatus } = req.body;
+    const { id } = req.params;
+    const { status } = req.body;
 
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { orderStatus },
-      { new: true }
+    // 1. Validate if the status is part of your Schema enum
+    const validStatuses = ["pending", "arriving", "delivered", "cancel"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid status update requested." 
+      });
+    }
+
+    // 2. Update the order
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      { orderStatus: status },
+      { new: true, runValidators: true }
     );
 
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+    if (!updatedOrder) {
+      return res.status(404).json({ success: false, message: "Order not found." });
     }
 
     res.status(200).json({
-      message: "Order status updated",
-      order,
+      success: true,
+      message: `Order status updated to ${status}`,
+      order: updatedOrder,
     });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("UPDATE_STATUS_ERROR:", err.message);
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
-
 /**
  * ADMIN: Delete order
  */
 export const deleteOrder = async (req, res) => {
   try {
-    const order = await Order.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
 
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+    // 1. Perform deletion
+    const deletedOrder = await Order.findByIdAndDelete(id);
+
+    if (!deletedOrder) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Order record not found in registry." 
+      });
     }
 
-    res.status(200).json({ message: "Order deleted successfully" });
+    // Optional: If you want to delete associated payments, do it here.
+
+    res.status(200).json({
+      success: true,
+      message: "Order has been permanently purged from the registry.",
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("DELETE_ORDER_ERROR:", err.message);
+    res.status(500).json({ success: false, message: "Could not delete order." });
   }
 };

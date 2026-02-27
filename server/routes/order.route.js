@@ -20,8 +20,8 @@ router.get("/:id", verifyToken, getOrderById);
 router.put("/:id/cancel", verifyToken, cancelOrder);
 
 // admin
-router.get("/getAll" , getAllOrders);
-router.put("/:id/status", updateOrderStatus);
-router.delete("/:id", deleteOrder);
+router.get("/admin/getAll", getAllOrders);
+router.put("/admin/update-status/:id", adminAuth, updateOrderStatus);
+router.delete("/admin/delete/:id", adminAuth, deleteOrder);
 
 export default router;

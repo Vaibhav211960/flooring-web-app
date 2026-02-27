@@ -1,21 +1,30 @@
 import express from "express";
 import {
-  addFeedback,
-  getMyFeedback,
-  getFeedbackByProduct,
-  getAllFeedback,
-  deleteFeedback,
+  submitVerifiedFeedback,
+  checkFeedbackEligibility,
+  editMyFeedback,
+  deleteMyFeedback,
+  getMyFeedbackHistory,
+  getProductReviews,
+  getAdminFeedbackLedger,
+  removeFeedback,
 } from "../controller/feedback.controller.js";
+import verifyToken from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// customer
-router.post("/", addFeedback);
-router.get("/my", getMyFeedback);
-router.get("/product/:productId", getFeedbackByProduct);
+// --- Customer Routes ---
+router.post("/submit", verifyToken, submitVerifiedFeedback);
+router.get("/verify-eligibility/:productId", verifyToken, checkFeedbackEligibility);
+router.get("/my-history", verifyToken, getMyFeedbackHistory);
+router.get("/product/:productId", getProductReviews);
 
-// admin
-router.get("/", getAllFeedback);
-router.delete("/:id", deleteFeedback);
+// Edit & Delete own review
+router.put("/:id", verifyToken, editMyFeedback);
+router.delete("/:id", verifyToken, deleteMyFeedback);
+
+// --- Admin Routes ---
+router.get("/admin/all", getAdminFeedbackLedger);
+router.delete("/admin/:id", removeFeedback);
 
 export default router;

@@ -4,6 +4,7 @@ import {
   Eye, X, User, MapPin, Package, Calendar, 
   CreditCard, Phone, Mail, Hash, Printer, Clock, Loader2, Search
 } from "lucide-react";
+import { Button } from "../../src/ui/button.jsx";
 import { useToast } from "../../src/hooks/useToast.jsx";
 
 const Orders = () => {
@@ -19,12 +20,13 @@ const Orders = () => {
   // 1. Fetch Orders from Backend
   const fetchAllOrders = async () => {
     try {
-      setIsLoading(true);
+      // setIsLoading(true);
       const token = localStorage.getItem("token"); // Ensure admin token is used
-      const res = await axios.get("http://localhost:5000/api/orders/getAll", {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await axios.get("http://localhost:5000/api/orders/admin/getAll", {
+        // headers: { Authorization: `Bearer ${token}` }
       });
       setOrders(res.data.orders);
+      console.log("Fetched Orders:", res.data);
     } catch (err) {
       toast({ title: "FETCH FAILED", description: "Could not retrieve order registry.", variant: "destructive" });
     } finally {
@@ -155,18 +157,67 @@ const Orders = () => {
       </div>
 
       {/* Detail Modal */}
-      {isDetailOpen && selectedOrder && (
-        <OrderDetailModal 
-          order={selectedOrder} 
-          onClose={() => setIsDetailOpen(false)} 
-        />
-      )}
+      {/* Change this in your main return */}
+{isDetailOpen && selectedOrder && (
+  <OrderDetailModal 
+    order={selectedOrder} 
+    onClose={() => setIsDetailOpen(false)} 
+    onRefresh={fetchAllOrders} // <--- Add this
+  />
+)}
     </div>
   );
 };
 
-/* --- DYNAMIC MODAL COMPONENT --- */
-const OrderDetailModal = ({ order, onClose }) => {
+/* --- UPDATED DYNAMIC MODAL COMPONENT --- */
+const OrderDetailModal = ({ order, onClose, onRefresh }) => {
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [newStatus, setNewStatus] = useState(order.orderStatus);
+  const { toast } = useToast();
+
+  // 1. Update Status Function
+  const handleUpdateStatus = async () => {
+    try {
+      setIsUpdating(true);
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `http://localhost:5000/api/orders/admin/update-status/${order._id}`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast({ title: "STATUS UPDATED", description: `Order is now marked as ${newStatus}.` });
+      onRefresh(); // Refresh the main list
+      onClose();   // Close modal
+    } catch (err) {
+      toast({ 
+        title: "UPDATE FAILED", 
+        description: err.response?.data?.message || "Could not update registry.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // 2. Delete Order Function
+  const handleDeleteOrder = async () => {
+    if (!window.confirm("CRITICAL: Are you sure you want to delete this record? This cannot be undone.")) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`http://localhost:5000/api/orders/admin/delete/${order._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      toast({ title: "RECORD DELETED", description: "Order has been removed from registry." });
+      onRefresh();
+      onClose();
+    } catch (err) {
+      toast({ title: "DELETE FAILED", description: "Authorization required.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-stone-900/80 backdrop-blur-md animate-in fade-in duration-300">
       <div className="bg-white rounded-[2rem] w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-stone-200">
@@ -185,7 +236,7 @@ const OrderDetailModal = ({ order, onClose }) => {
           <button onClick={onClose} className="p-2 hover:bg-stone-200 rounded-full transition-colors text-stone-400"><X size={24} /></button>
         </div>
 
-        {/* Modal Body */}
+        {/* Modal Body (Kept your original layout) */}
         <div className="flex-1 overflow-y-auto p-8 bg-white">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
             
@@ -202,22 +253,24 @@ const OrderDetailModal = ({ order, onClose }) => {
                   </div>
                   <div className="space-y-3 pt-3 border-t border-stone-200/50">
                     <div className="flex items-center gap-3 text-stone-600"><Phone size={14} className="text-amber-600"/> <span className="text-xs font-medium">{order.shippingAddress?.contact}</span></div>
-                    <div className="flex items-center gap-3 text-stone-600"><Hash size={14} className="text-amber-600"/> <span className="text-xs font-medium">{order.shippingAddress?.pincode}</span></div>
                   </div>
                 </div>
               </section>
 
               <section>
-                <h3 className="text-[10px] font-black uppercase text-amber-600 tracking-widest mb-4">Site Destination</h3>
-                <div className="p-6 bg-stone-900 rounded-[2rem] text-stone-300 relative overflow-hidden">
-                  <MapPin size={40} className="absolute -right-2 -bottom-2 opacity-10 text-white"/>
-                  <p className="text-xs leading-relaxed font-medium uppercase italic">
-                    {order.shippingAddress?.address}
-                  </p>
-                  <div className="mt-4 pt-4 border-t border-stone-800 flex items-center gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-amber-500"></div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Landmark: {order.shippingAddress?.landmark}</span>
-                  </div>
+                <h3 className="text-[10px] font-black uppercase text-amber-600 tracking-widest mb-4">Status Management</h3>
+                <div className="p-5 bg-white border border-stone-200 rounded-3xl space-y-3">
+                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Current Status</p>
+                  <select 
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold uppercase tracking-wider outline-none focus:border-amber-500"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="arriving">Arriving</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancel">Cancel</option>
+                  </select>
                 </div>
               </section>
             </div>
@@ -232,7 +285,6 @@ const OrderDetailModal = ({ order, onClose }) => {
                       <tr>
                         <th className="p-4 text-left">Spec</th>
                         <th className="p-4 text-center">Units</th>
-                        <th className="p-4 text-right">Unit Price</th>
                         <th className="p-4 text-right">Total</th>
                       </tr>
                     </thead>
@@ -241,10 +293,8 @@ const OrderDetailModal = ({ order, onClose }) => {
                         <tr key={i} className="text-xs">
                           <td className="p-4">
                             <p className="font-bold text-stone-800 uppercase">{item.productName}</p>
-                            <p className="text-[9px] text-stone-400 font-mono">SKU: {item.productId?.slice(-6)}</p>
                           </td>
                           <td className="p-4 text-center font-bold text-stone-600">{item.units || item.quantity}</td>
-                          <td className="p-4 text-right text-stone-500">₹{item.pricePerUnit || item.price}</td>
                           <td className="p-4 text-right font-bold text-stone-900">₹{item.totalAmount?.toLocaleString()}</td>
                         </tr>
                       ))}
@@ -253,23 +303,16 @@ const OrderDetailModal = ({ order, onClose }) => {
                 </div>
               </section>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="p-6 bg-stone-50 rounded-3xl border border-stone-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[9px] font-bold text-stone-400 uppercase mb-1 tracking-widest">Acquisition Mode</p>
-                        <p className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                            <CreditCard size={14} className="text-amber-600"/> {order.paymentMode}
-                        </p>
-                    </div>
-                    <div className={`h-2.5 w-2.5 rounded-full ${order.orderStatus === 'cancel' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>
-                 </div>
-                 <div className="p-6 bg-stone-900 rounded-3xl text-white flex items-center justify-between shadow-xl">
-                    <div>
-                        <p className="text-[9px] font-bold text-amber-500 uppercase mb-1 tracking-widest">Net Settlement</p>
-                        <p className="text-2xl font-serif font-black">₹{order.netBill?.toLocaleString('en-IN')}</p>
-                    </div>
-                    <Printer className="opacity-20 hover:opacity-100 cursor-pointer transition-opacity" />
-                 </div>
+              <div className="p-6 bg-stone-900 rounded-3xl text-white flex items-center justify-between shadow-xl">
+                <div>
+                  <p className="text-[9px] font-bold text-amber-500 uppercase mb-1 tracking-widest">Net Settlement</p>
+                  <p className="text-2xl font-serif font-black">₹{order.netBill?.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="flex gap-4">
+                    <button onClick={() => window.print()} className="p-2 hover:bg-stone-800 rounded-lg transition-colors">
+                        <Printer className="text-stone-400" size={20} />
+                    </button>
+                </div>
               </div>
             </div>
           </div>
@@ -277,13 +320,28 @@ const OrderDetailModal = ({ order, onClose }) => {
 
         {/* Modal Footer */}
         <div className="px-8 py-5 bg-stone-50 border-t border-stone-100 flex justify-between items-center">
-          <div className="flex items-center gap-2 text-stone-400">
-            <Clock size={14}/>
-            <span className="text-[9px] font-bold uppercase tracking-widest">Logged: {new Date(order.createdAt).toLocaleString()}</span>
-          </div>
+          <button 
+            onClick={handleDeleteOrder}
+            className="text-[10px] font-bold uppercase text-rose-500 hover:text-rose-700 tracking-widest transition-colors"
+          >
+            Delete Record
+          </button>
+          
           <div className="flex gap-3">
-            <Button variant="outline" className="rounded-xl text-[10px] h-10 px-6 uppercase font-bold tracking-widest">Archive Log</Button>
-            <Button className="bg-stone-900 hover:bg-amber-600 text-white rounded-xl text-[10px] h-10 px-8 uppercase font-bold tracking-widest transition-all">Update Fulfillment</Button>
+            <Button 
+                variant="outline" 
+                onClick={onClose}
+                className="rounded-xl text-[10px] h-10 px-6 uppercase font-bold tracking-widest"
+            >
+                Cancel
+            </Button>
+            <Button 
+                onClick={handleUpdateStatus}
+                disabled={isUpdating || newStatus === order.orderStatus}
+                className="bg-stone-900 hover:bg-amber-600 text-white rounded-xl text-[10px] h-10 px-8 uppercase font-bold tracking-widest transition-all min-w-[160px]"
+            >
+                {isUpdating ? <Loader2 className="animate-spin" size={14} /> : "Update Fulfillment"}
+            </Button>
           </div>
         </div>
       </div>

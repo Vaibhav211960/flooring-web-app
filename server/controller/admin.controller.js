@@ -20,9 +20,11 @@ const adminLogin = async (req, res) => {
     const token = jwt.sign(
       { id: admin._id.toString() },
       process.env.ADMIN_JWT_SECRET,
-      { expiresIn: "7h" }
+      { expiresIn: "70h" }
     );
 
+    console.log("hyy");
+    
     console.log(
       "SIGN SECRET:",
       JSON.stringify(process.env.ADMIN_JWT_SECRET)

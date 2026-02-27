@@ -42,6 +42,10 @@ app.use("/api/subcategories", subCategoryRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/payments", paymentRoutes);
 
+app.get("/api/test", () => {
+  console.log("hyy");
+});
+
 // Admin routes
 app.use("/api/admin", adminRoutes);
 // app.use("/api/admin/orders", orderRoutes);

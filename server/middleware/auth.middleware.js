@@ -18,6 +18,7 @@ export default async function verifyToken(req, res, next) {
 
     // 2. Verify token
     // If this fails, it jumps straight to the catch block
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // 3. Find user

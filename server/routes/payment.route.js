@@ -3,7 +3,7 @@ import {
   createPayment,
   getMyPayments,
   getPaymentByOrder,
-  getAllPayments,
+  getFinancialLedger,
   updatePaymentStatus,
   deletePayment,
 } from "../controller/payment.controller.js";
@@ -16,7 +16,7 @@ router.get("/my", getMyPayments);
 router.get("/order/:orderId", getPaymentByOrder);
 
 // admin
-router.get("/", getAllPayments);
+router.get("/admin/getAll", getFinancialLedger);
 router.put("/:id/status", updatePaymentStatus);
 router.delete("/:id", deletePayment);
 

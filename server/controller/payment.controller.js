@@ -72,20 +72,23 @@ export const getPaymentByOrder = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+// Controller for the Financial Ledger
+export const getFinancialLedger = async (req, res) => {
+    try {
+        const payments = await Payment.find()
+            .populate({
+                path: 'orderId',
+                populate: {
+                    path: 'userId', // References User model in Order schema
+                    select: 'name email phone' // Only get what we need
+                }
+            })
+            .sort({ createdAt: -1 });
 
-/**
- * ADMIN: Get all payments
- */
-export const getAllPayments = async (req, res) => {
-  try {
-    const payments = await Payment.find()
-      .populate("orderId", "netBill orderStatus")
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({ payments });
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
+        res.status(200).json(payments);
+    } catch (error) {
+        res.status(500).json({ message: "Sync Error", error });
+    }
 };
 
 /**

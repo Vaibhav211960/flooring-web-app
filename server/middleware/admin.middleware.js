@@ -19,6 +19,8 @@ const adminAuth = async (req, res, next) => {
     console.log("ADMIN_JWT_SECRET:", process.env.ADMIN_JWT_SECRET);
 
     // 3. Verify token
+        console.log("VERIFY SECRET:", process.env.ADMIN_JWT_SECRET)
+    
     const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
     console.log("Decoded Admin Token:", decoded);
 
