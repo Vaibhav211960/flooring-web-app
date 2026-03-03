@@ -16,12 +16,6 @@ const productSchema = new mongoose.Schema(
     },
     stock: { type: Number, required: true },
 
-    // --- ADDED FOR CALCULATOR LOGIC ---
-    coveragePerBox: { 
-      type: Number, 
-      required: true, 
-      default: 1 // Crucial for your room area calculator
-    },
 
     materialType: { type: String, required: true }, 
     woodType: { type: String },

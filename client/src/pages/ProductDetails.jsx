@@ -5,7 +5,8 @@ import {
   CreditCard, ChevronRight, Home,
   ShieldCheck, Zap, Layers, Box, Loader2, Warehouse,
   Palette, Star, Send, CheckCircle2, Lock,
-  Pencil, Trash2, X, Check, Droplets, Wrench, Maximize, Ruler
+  Pencil, Trash2, X, Check, Droplets, Wrench, Maximize, Ruler,
+  Package, Tag, Flame, Square
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -19,7 +20,7 @@ export default function ProductDetails() {
   const navigate = useNavigate();
 
   const [product, setProduct] = useState(null);
-  const [qty, setQty] = useState(10);
+  const [qty, setQty] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -131,12 +132,11 @@ export default function ProductDetails() {
   // --- BUY NOW LOGIC ---
   const handleBuyNow = () => {
     if (!product) return;
-    if (!localStorage.getItem("UserToken")) { 
-      toast.error("Please sign in to continue."); 
-      navigate("/login"); 
-      return; 
+    if (!localStorage.getItem("UserToken")) {
+      toast.error("Please sign in to continue.");
+      navigate("/login");
+      return;
     }
-    
     const singleBuyData = {
       productId: product._id,
       name: product.name,
@@ -146,20 +146,39 @@ export default function ProductDetails() {
       quantity: qty,
       total: product.price * qty
     };
-
     localStorage.setItem("single_buy_product", JSON.stringify(singleBuyData));
     navigate(`/buy-now/${product._id}`, { state: { quantity: qty, flow: 'single' } });
   };
 
-  // --- DYNAMIC COVERAGE CALCULATION ---
-  // Calculates Total Square Feet based on Quantity * Length * Width
-  // Assumes product.length and product.width are numeric values representing feet.
+  // --- COVERAGE CALCULATION ---
+  // Schema stores lengthMM and widthMM (in millimeters)
+  // Convert to sq.ft: 1 mm = 0.00328084 ft
+  const mmToFt = (mm) => (mm || 0) * 0.00328084;
+
   const calculateTotalCoverage = () => {
-    if (!product) return 0;
-    const l = product.length || 1;
-    const w = product.width || 1;
-    return (qty * l * w).toFixed(2);
+    if (!product) return "0.00";
+    // If unit is "box", use coveragePerBox
+    if (product.unit === "box") {
+      return ((product.coveragePerBox || 0) * qty).toFixed(2);
+    }
+    // Otherwise calculate from dimensions
+    const lFt = mmToFt(product.lengthMM);
+    const wFt = mmToFt(product.widthMM);
+    if (lFt === 0 || wFt === 0) return "N/A";
+    return (qty * lFt * wFt).toFixed(2);
   };
+
+  const lengthDisplay = product?.lengthMM
+    ? `${product.lengthMM} mm (${mmToFt(product.lengthMM).toFixed(2)} ft)`
+    : "N/A";
+
+  const widthDisplay = product?.widthMM
+    ? `${product.widthMM} mm (${mmToFt(product.widthMM).toFixed(2)} ft)`
+    : "N/A";
+
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : null;
 
   if (isLoading) return (
     <div className="min-h-screen bg-stone-50 flex items-center justify-center">
@@ -197,31 +216,65 @@ export default function ProductDetails() {
 
           {/* LEFT COLUMN: Media & Reviews */}
           <div className="lg:col-span-6 xl:col-span-7 space-y-12">
-            <div className="aspect-square bg-white rounded-xl border border-stone-200 overflow-hidden shadow-sm relative">
+            {/* Product Image */}
+            <div className="aspect-square bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm relative">
               <img src={product.image} className="w-full h-full object-cover" alt={product.name} />
-              {product.waterResistance === "Waterproof" && (
-                <div className="absolute top-4 left-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 shadow-md">
-                  <Droplets size={12} /> Waterproof
+
+              {/* Badges */}
+              <div className="absolute top-4 left-4 flex flex-col gap-2">
+                {product.waterResistance === "Waterproof" && (
+                  <span className="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 shadow-md">
+                    <Droplets size={12} /> Waterproof
+                  </span>
+                )}
+                {product.waterResistance === "Water-resistant" && (
+                  <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 shadow-md">
+                    <Droplets size={12} /> Water-Resistant
+                  </span>
+                )}
+                {!product.isActive && (
+                  <span className="bg-red-500 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-md">
+                    Discontinued
+                  </span>
+                )}
+              </div>
+
+              {/* Avg rating badge */}
+              {avgRating && (
+                <div className="absolute top-4 right-4 bg-stone-900/80 backdrop-blur-sm text-amber-400 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg">
+                  <Star size={12} fill="#fbbf24" />
+                  <span className="text-sm font-bold">{avgRating}</span>
+                  <span className="text-[9px] text-stone-400">({reviews.length})</span>
                 </div>
               )}
             </div>
 
-            <section className="space-y-6">
-               <h3 className="font-serif text-3xl text-stone-800 leading-tight italic border-b border-stone-200 pb-6">
-                 "{product.description}"
-               </h3>
+            {/* Description */}
+            <section>
+              <h3 className="font-serif text-2xl text-stone-800 leading-relaxed italic border-b border-stone-200 pb-6">
+                "{product.description}"
+              </h3>
             </section>
 
             {/* Reviews Section */}
-            <section className="space-y-6 pt-6">
+            <section className="space-y-6 pt-2">
               <div className="border-b border-stone-200 pb-4 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 mb-1">Customer Reviews</p>
                   <h3 className="font-serif text-2xl text-stone-800">What buyers say</h3>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-stone-900">{reviews.length}</p>
-                  <p className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">{reviews.length === 1 ? "Review" : "Reviews"}</p>
+                  {avgRating ? (
+                    <>
+                      <p className="text-2xl font-bold text-stone-900">{avgRating} <span className="text-base text-stone-400">/ 5</span></p>
+                      <p className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">{reviews.length} {reviews.length === 1 ? "Review" : "Reviews"}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-stone-900">{reviews.length}</p>
+                      <p className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">{reviews.length === 1 ? "Review" : "Reviews"}</p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -331,119 +384,231 @@ export default function ProductDetails() {
             </section>
           </div>
 
-          {/* RIGHT COLUMN: Commerce & Specs Matrix */}
+          {/* RIGHT COLUMN: Commerce & Specs */}
           <div className="lg:col-span-6 xl:col-span-5 flex flex-col gap-8">
+
             {/* Header Block */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                 <span className="text-[10px] font-bold text-amber-700 uppercase tracking-[0.4em] block">{product.materialType} / {product.woodType}</span>
-                 <span className="text-[10px] font-mono text-stone-400 uppercase bg-stone-100 px-2 py-1 rounded-md">SKU: {product.sku}</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-[0.4em]">
+                  {product.materialType}{product.woodType ? ` / ${product.woodType}` : ""}
+                </span>
+                <span className="text-[10px] font-mono text-stone-400 uppercase bg-stone-100 px-2 py-1 rounded-md">
+                  SKU: {product.sku}
+                </span>
               </div>
-              
+
               <h1 className="text-4xl md:text-5xl font-serif font-semibold text-stone-900 leading-tight">{product.name}</h1>
-              
-              <div className="pt-2">
-                <div className="flex items-baseline gap-2">
+
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <div>
                   <span className="text-3xl font-medium text-stone-900">₹{product.price.toLocaleString()}</span>
-                  <span className="text-stone-500 text-sm">/ per {product.unit}</span>
+                  <span className="text-stone-500 text-sm ml-1">/ per {product.unit}</span>
+                </div>
+                {product.pricePerBox && product.unit !== "box" && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-1">
+                    <span className="text-xs text-amber-800 font-semibold">₹{product.pricePerBox.toLocaleString()} / box</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Stock indicator */}
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${product.stock > 20 ? "bg-emerald-500" : product.stock > 0 ? "bg-amber-500" : "bg-red-500"}`} />
+                <span className={`text-xs font-semibold ${product.stock > 20 ? "text-emerald-700" : product.stock > 0 ? "text-amber-700" : "text-red-700"}`}>
+                  {product.stock > 20 ? `In Stock (${product.stock} units)` : product.stock > 0 ? `Low Stock — only ${product.stock} left` : "Out of Stock"}
+                </span>
+              </div>
+            </div>
+
+            {/* Full Specs Matrix */}
+            <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3 bg-stone-50 border-b border-stone-200 flex items-center gap-2">
+                <Wrench size={14} className="text-amber-700" />
+                <span className="text-[10px] uppercase font-bold tracking-widest text-stone-600">Full Specifications</span>
+              </div>
+
+              {/* Row 1: Dimensions */}
+              <div className="grid grid-cols-3 border-b border-stone-100">
+                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Ruler size={10}/> Length</span>
+                  <span className="text-xs font-semibold text-stone-800">{product.lengthMM ? `${product.lengthMM} mm` : "N/A"}</span>
+                  {product.lengthMM && <span className="text-[10px] text-stone-400">{mmToFt(product.lengthMM).toFixed(2)} ft</span>}
+                </div>
+                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Ruler size={10}/> Width</span>
+                  <span className="text-xs font-semibold text-stone-800">{product.widthMM ? `${product.widthMM} mm` : "N/A"}</span>
+                  {product.widthMM && <span className="text-[10px] text-stone-400">{mmToFt(product.widthMM).toFixed(2)} ft</span>}
+                </div>
+                <div className="p-4 flex flex-col gap-1">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Layers size={10}/> Thickness</span>
+                  <span className="text-xs font-semibold text-stone-800">{product.thicknessMM ? `${product.thicknessMM} mm` : "N/A"}</span>
+                </div>
+              </div>
+
+              {/* Row 2: Appearance */}
+              <div className="grid grid-cols-3 border-b border-stone-100">
+                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Box size={10}/> Finish</span>
+                  <span className="text-xs font-semibold text-stone-800">{product.finish || "Standard"}</span>
+                </div>
+                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Palette size={10}/> Color</span>
+                  <span className="text-xs font-semibold text-stone-800">{product.color || "Natural"}</span>
+                  {product.colorFamily && (
+                    <span className="text-[10px] text-stone-400">{product.colorFamily} family</span>
+                  )}
+                </div>
+                <div className="p-4 flex flex-col gap-1">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Droplets size={10}/> Water Rating</span>
+                  <span className={`text-xs font-semibold ${
+                    product.waterResistance === "Waterproof" ? "text-emerald-700"
+                    : product.waterResistance === "Water-resistant" ? "text-blue-700"
+                    : "text-stone-500"
+                  }`}>
+                    {product.waterResistance || "Not Rated"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 3: Material & Coverage */}
+              <div className="grid grid-cols-3 border-b border-stone-100">
+                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Square size={10}/> Material</span>
+                  <span className="text-xs font-semibold text-stone-800">{product.materialType}</span>
+                </div>
+                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Package size={10}/> Wood Type</span>
+                  <span className="text-xs font-semibold text-stone-800">{product.woodType || "—"}</span>
+                </div>
+                <div className="p-4 flex flex-col gap-1">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Maximize size={10}/> Coverage/Box</span>
+                  <span className="text-xs font-semibold text-stone-800">
+                    {product.coveragePerBox ? `${product.coveragePerBox} sq.ft` : "N/A"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 4: Pricing & Unit */}
+              <div className="grid grid-cols-3">
+                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Tag size={10}/> Unit</span>
+                  <span className="text-xs font-semibold text-stone-800 uppercase">{product.unit}</span>
+                </div>
+                {product.pricePerBox && (
+                  <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
+                    <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Tag size={10}/> Price/Box</span>
+                    <span className="text-xs font-semibold text-stone-800">₹{product.pricePerBox.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="p-4 flex flex-col gap-1">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Warehouse size={10}/> Stock</span>
+                  <span className={`text-xs font-semibold ${product.stock > 20 ? "text-emerald-600" : product.stock > 0 ? "text-amber-600" : "text-red-600"}`}>
+                    {product.stock} {product.unit}
+                    {product.stock === 0 ? "s" : "s"} left
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* NEW: Unified Specs & Visuals Matrix */}
-            <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
-               <div className="px-5 py-3 bg-stone-50 border-b border-stone-200 flex items-center gap-2">
-                 <Wrench size={14} className="text-amber-700" />
-                 <span className="text-[10px] uppercase font-bold tracking-widest text-stone-600">Material Matrix</span>
-               </div>
-               <div className="grid grid-cols-2 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-stone-100 border-b border-stone-100">
-                  <div className="p-4 flex flex-col gap-1">
-                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Ruler size={10}/> Length</span>
-                     <span className="text-sm font-semibold text-stone-800">{product.length || "N/A"} ft</span>
+            {/* Installation & Heating badges */}
+            {(product.installationMethod || product.isRadiantHeatCompatible) && (
+              <div className="flex gap-3">
+                {product.installationMethod && (
+                  <div className="flex-1 bg-stone-100/70 border border-stone-200 rounded-xl p-3 flex items-center gap-3">
+                    <Wrench size={16} className="text-stone-500 shrink-0"/>
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400">Install Method</p>
+                      <p className="text-xs font-bold text-stone-800">{product.installationMethod}</p>
+                    </div>
                   </div>
-                  <div className="p-4 flex flex-col gap-1">
-                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Ruler size={10}/> Width</span>
-                     <span className="text-sm font-semibold text-stone-800">{product.width || "N/A"} ft</span>
+                )}
+                {product.isRadiantHeatCompatible && (
+                  <div className="flex-1 bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-3">
+                    <Flame size={16} className="text-amber-600 shrink-0"/>
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-amber-700">Radiant Heat</p>
+                      <p className="text-xs font-bold text-amber-900">Compatible</p>
+                    </div>
                   </div>
-                  <div className="p-4 flex flex-col gap-1">
-                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Layers size={10}/> Thickness</span>
-                     <span className="text-sm font-semibold text-stone-800">{product.thicknessMM} mm</span>
-                  </div>
-               </div>
-               <div className="grid grid-cols-2 md:grid-cols-3 divide-x divide-stone-100">
-                  <div className="p-4 flex flex-col gap-1">
-                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Box size={10}/> Finish</span>
-                     <span className="text-sm font-semibold text-stone-800">{product.finish || "Standard"}</span>
-                  </div>
-                  <div className="p-4 flex flex-col gap-1">
-                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Palette size={10}/> Color</span>
-                     <span className="text-sm font-semibold text-stone-800">{product.color || "Natural"}</span>
-                  </div>
-                  <div className="p-4 flex flex-col gap-1">
-                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Warehouse size={10}/> Status</span>
-                     <span className={`text-sm font-semibold ${product.stock > 20 ? "text-emerald-600" : "text-amber-600"}`}>
-                       {product.stock} left
-                     </span>
-                  </div>
-               </div>
-            </div>
-
-            {/* Added details for installation & heating */}
-            <div className="flex gap-4">
-              {product.installationMethod && (
-                <div className="flex-1 bg-stone-100/50 border border-stone-200 rounded-xl p-3 flex items-center gap-3">
-                  <Wrench size={16} className="text-stone-400"/>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400">Install Method</p>
-                    <p className="text-xs font-bold text-stone-800">{product.installationMethod}</p>
-                  </div>
-                </div>
-              )}
-              {product.isRadiantHeatCompatible && (
-                <div className="flex-1 bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-3">
-                  <Zap size={16} className="text-amber-600"/>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-amber-700">Radiant Heat</p>
-                    <p className="text-xs font-bold text-amber-900">Compatible</p>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* ACTION AREA */}
             <div className="space-y-5 pt-5 border-t border-stone-200">
-              
+
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-widest text-stone-500">Order Quantity</span>
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-stone-500 block">Order Quantity</span>
+                  <span className="text-[10px] text-stone-400">in {product.unit}s</span>
+                </div>
                 <div className="flex items-center bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
-                  <button onClick={() => setQty(Math.max(10, qty - 1))} className="px-4 py-2.5 hover:bg-stone-50 text-stone-600 font-bold transition-colors">−</button>
+                  <button
+                    onClick={() => setQty(Math.max(1, qty - 1))}
+                    className="px-4 py-2.5 hover:bg-stone-50 text-stone-600 font-bold transition-colors"
+                  >−</button>
                   <span className="px-5 py-2.5 font-bold text-stone-900 border-x border-stone-100 min-w-[3rem] text-center">{qty}</span>
-                  <button onClick={() => setQty(Math.max(10, qty + 1))} className="px-4 py-2.5 hover:bg-stone-50 text-stone-600 font-bold transition-colors">+</button>
+                  <button
+                    onClick={() => setQty(qty + 1)}
+                    disabled={qty >= product.stock}
+                    className="px-4 py-2.5 hover:bg-stone-50 text-stone-600 font-bold transition-colors disabled:opacity-30"
+                  >+</button>
                 </div>
               </div>
 
-              {/* NEW DYNAMIC COVERAGE CALCULATOR */}
+              {/* Order Summary */}
+              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-stone-500">Subtotal ({qty} {product.unit}s)</span>
+                  <span className="text-sm font-bold text-stone-900">₹{(product.price * qty).toLocaleString()}</span>
+                </div>
+                {product.pricePerBox && product.unit !== "box" && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-stone-500">Box equivalent</span>
+                    <span className="text-xs text-stone-600">~{(qty / (product.coveragePerBox || 1)).toFixed(1)} boxes</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Coverage Calculator */}
               <div className="flex items-center justify-between bg-stone-900 text-amber-500 p-4 rounded-xl shadow-inner">
                 <div className="flex items-center gap-3">
-                   <Maximize size={18} className="opacity-80" />
-                   <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Calculated Coverage</p>
-                      <p className="text-xs font-medium text-stone-300 italic mt-0.5">Based on L × W × Qty</p>
-                   </div>
+                  <Maximize size={18} className="opacity-80" />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Estimated Coverage</p>
+                    <p className="text-xs font-medium text-stone-400 italic mt-0.5">
+                      {product.unit === "box" ? "Coverage per box × qty" : "L × W × qty"}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right">
-                   <span className="text-2xl font-mono font-bold text-white">{calculateTotalCoverage()}</span>
-                   <span className="text-[10px] font-bold uppercase tracking-widest ml-1 text-stone-400">sq.ft</span>
+                  <span className="text-2xl font-mono font-bold text-white">{calculateTotalCoverage()}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest ml-1 text-stone-400">sq.ft</span>
                 </div>
               </div>
 
               <div className="flex flex-col gap-3 pt-2">
-                <Button onClick={handleBuyNow}
-                  className="w-full h-14 bg-amber-600 text-white hover:bg-amber-500 text-sm font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-3 border-none shadow-lg active:scale-95 transition-all">
+                <Button
+                  onClick={handleBuyNow}
+                  disabled={product.stock === 0 || !product.isActive}
+                  className="w-full h-14 bg-amber-600 text-white hover:bg-amber-500 text-sm font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-3 border-none shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <CreditCard size={17} />
-                  {localStorage.getItem("UserToken") ? "Proceed to Checkout" : "Sign In to Purchase"}
+                  {!product.isActive
+                    ? "Product Unavailable"
+                    : product.stock === 0
+                    ? "Out of Stock"
+                    : localStorage.getItem("UserToken")
+                    ? "Proceed to Checkout"
+                    : "Sign In to Purchase"}
                 </Button>
-                <AddToCartButton product={product} qty={qty} className="h-14 text-sm rounded-xl bg-white border border-stone-200 text-stone-900 hover:bg-stone-50" />
+                <AddToCartButton
+                  product={product}
+                  qty={qty}
+                  disabled={product.stock === 0 || !product.isActive}
+                  className="h-14 text-sm rounded-xl bg-white border border-stone-200 text-stone-900 hover:bg-stone-50"
+                />
               </div>
 
               <div className="flex items-center justify-center gap-6 pt-4 border-t border-stone-100">

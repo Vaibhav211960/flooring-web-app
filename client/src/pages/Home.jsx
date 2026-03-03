@@ -1,13 +1,5 @@
 import { Link } from "react-router-dom";
-import {
-  Truck,
-  Award,
-  PenTool,
-  ShieldCheck,
-  Star,
-  ArrowRight,
-} from "lucide-react";
-
+import { Truck, Award, PenTool, ShieldCheck, Star, ArrowRight } from "lucide-react";
 import Navbar from "../components/Navbar.jsx";
 import Footer from "../components/Footer.jsx";
 import { CategoryCard } from "../components/CategoryCard.jsx";
@@ -27,7 +19,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900">
       <Navbar />
 
-      {/* --- HERO --- */}
+      {/* HERO */}
       <section className="relative h-[85vh] w-full flex flex-col items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-stone-900/70 via-stone-900/40 to-stone-900/60 z-10" />
         <img
@@ -37,19 +29,22 @@ export default function Home() {
           loading="eager"
         />
         <div className="relative z-20 text-center text-white max-w-4xl px-6">
+          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-400 mb-4">
+            Premium Flooring Direct
+          </p>
           <h1 className="font-serif text-5xl md:text-7xl font-bold mb-6 drop-shadow-lg leading-tight">
             Flooring Built for <br />
-            <span className="text-amber-200 italic">Generations</span>
+            <span className="text-amber-300 italic">Generations</span>
           </h1>
-          <p className="text-lg md:text-xl mb-10 text-stone-200 max-w-2xl mx-auto leading-relaxed font-light">
-            Direct-from-manufacturer pricing on premium hardwood, vinyl, and
-            laminate. Elevate your home with timeless durability.
+          <p className="text-base md:text-lg mb-10 text-stone-300 max-w-2xl mx-auto leading-relaxed font-light">
+            Direct-from-manufacturer pricing on premium hardwood, vinyl, and laminate.
+            Elevate your home with timeless durability.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button
               onClick={scrollToCategories}
               size="lg"
-              className="bg-amber-600 hover:bg-amber-700 text-white border-none text-base px-8 py-4 rounded-full shadow-xl transition-all hover:scale-105"
+              className="bg-amber-600 hover:bg-amber-700 text-white border-none text-sm font-bold uppercase tracking-widest px-8 h-14 rounded-xl shadow-xl transition-all hover:scale-105 active:scale-95"
             >
               Explore Collections
             </Button>
@@ -57,7 +52,7 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="outline"
-                className="bg-white/10 backdrop-blur-sm border-white/40 hover:bg-white text-white hover:text-stone-900 text-base px-8 py-4 rounded-full transition-all"
+                className="bg-white/10 backdrop-blur-sm border border-white/30 hover:bg-white text-white hover:text-stone-900 text-sm font-bold uppercase tracking-widest px-8 h-14 rounded-xl transition-all"
               >
                 Get a Quote
               </Button>
@@ -66,12 +61,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- CATEGORIES --- */}
-      <section id="categories" className="pt-24 pb-20 bg-stone-50">
+      {/* CATEGORIES */}
+      <section id="categories" className="py-16 md:py-24 bg-stone-50">
         <div className="container max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
             <div>
-              <p className="text-xs font-bold tracking-[0.2em] uppercase text-amber-700 mb-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-700 mb-2">
                 Our Catalog
               </p>
               <h2 className="font-serif text-4xl font-semibold text-stone-900">
@@ -80,10 +75,10 @@ export default function Home() {
             </div>
             <Link
               to="/categories"
-              className="group flex items-center gap-2 text-stone-500 hover:text-amber-700 transition-colors text-sm font-medium"
+              className="group flex items-center gap-2 text-stone-500 hover:text-amber-700 transition-colors text-[10px] font-bold uppercase tracking-widest"
             >
               View All Categories
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -100,49 +95,36 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- WHY CHOOSE US --- */}
-      <section className="py-20 bg-amber-50/50 border-y border-amber-100">
-        <div className="container max-w-6xl mx-auto px-6">
+      {/* WHY CHOOSE US */}
+      <section className="py-16 md:py-24 bg-stone-900 text-white">
+        <div className="container max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
-            <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4 text-stone-900">
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500 mb-3">
+              Our Promise
+            </p>
+            <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4">
               Why Choose Inscape
             </h2>
-            <div className="h-1 w-10 bg-amber-600 mx-auto rounded-full mb-5" />
-            <p className="text-stone-600 max-w-xl mx-auto text-base">
+            <div className="h-px w-12 bg-amber-600 mx-auto mb-5" />
+            <p className="text-stone-400 max-w-xl mx-auto text-sm leading-relaxed">
               We cut out the middlemen to bring you industrial-grade durability
               with showroom aesthetics.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <FeatureBox
-              icon={Award}
-              title="Premium Materials"
-              description="Sourced directly from top manufacturers to ensure lasting quality."
-            />
-            <FeatureBox
-              icon={ShieldCheck}
-              title="Transparent Pricing"
-              description="Direct-to-consumer pricing without compromising on quality."
-            />
-            <FeatureBox
-              icon={PenTool}
-              title="Design Support"
-              description="Expert guidance from concept to completion."
-            />
-            <FeatureBox
-              icon={Truck}
-              title="Fast Delivery"
-              description="Reliable shipping with secure packaging."
-            />
+            <FeatureBox icon={Award} title="Premium Materials" description="Sourced directly from top manufacturers to ensure lasting quality." />
+            <FeatureBox icon={ShieldCheck} title="Transparent Pricing" description="Direct-to-consumer pricing without compromising on quality." />
+            <FeatureBox icon={PenTool} title="Design Support" description="Expert guidance from concept to completion." />
+            <FeatureBox icon={Truck} title="Fast Delivery" description="Reliable shipping with secure packaging." />
           </div>
         </div>
       </section>
 
-      {/* --- REVIEWS --- */}
-      <section className="py-20 bg-stone-50">
-        <div className="container max-w-6xl mx-auto px-6">
+      {/* REVIEWS */}
+      <section className="py-16 md:py-24 bg-stone-50">
+        <div className="container max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
-            <p className="text-xs font-bold tracking-[0.2em] uppercase text-amber-700 mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-700 mb-2">
               Customer Reviews
             </p>
             <h2 className="font-serif text-3xl font-semibold text-stone-900">
@@ -153,7 +135,7 @@ export default function Home() {
             {REVIEWS.map((review) => (
               <div
                 key={review.id}
-                className="bg-white p-8 rounded-xl border border-stone-100 shadow-sm flex flex-col justify-between h-full"
+                className="bg-white p-8 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-between h-full"
               >
                 <div>
                   <div className="flex gap-1 mb-4">
@@ -167,7 +149,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center justify-between border-t border-stone-100 pt-4">
                   <span className="font-semibold text-stone-900 text-sm">{review.name}</span>
-                  <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">
                     Verified Buyer
                   </span>
                 </div>
@@ -177,19 +159,22 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- CTA --- */}
-      <section className="py-20 bg-stone-900 text-white text-center">
+      {/* CTA */}
+      <section className="py-16 md:py-24 bg-amber-600 text-white text-center">
         <div className="container max-w-3xl mx-auto px-6">
+          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-100 mb-4">
+            Start Your Project
+          </p>
           <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4">
             Ready to Transform Your Space?
           </h2>
-          <p className="text-stone-400 mb-8 text-base">
+          <p className="text-amber-100 mb-10 text-sm leading-relaxed max-w-md mx-auto">
             Get a custom quote or order samples to see the quality for yourself.
           </p>
           <Link to="/contact">
             <Button
               size="lg"
-              className="bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-full border-none transition-all hover:scale-105"
+              className="bg-stone-900 hover:bg-stone-800 text-white text-sm font-bold uppercase tracking-widest px-10 h-14 rounded-xl border-none transition-all hover:scale-105 active:scale-95 shadow-xl"
             >
               Start Your Project
             </Button>
