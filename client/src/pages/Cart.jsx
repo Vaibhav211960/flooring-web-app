@@ -58,12 +58,12 @@ const Cart = () => {
             <ShoppingBag className="h-8 w-8 text-stone-300" />
           </div>
           <h1 className="text-2xl font-serif font-bold text-stone-900 mb-2">Your cart is empty</h1>
-          <p className="text-stone-500 max-w-xs mb-8 text-sm">
+          <p className="text-stone-500 max-w-xs mb-8 text-sm leading-relaxed">
             You haven't added any products yet.
           </p>
           <Button
             onClick={() => navigate("/products")}
-            className="bg-stone-900 hover:bg-stone-800 text-white px-8 h-12 rounded-xl uppercase tracking-widest text-[11px]"
+            className="bg-stone-900 hover:bg-stone-800 text-white px-8 h-12 rounded-xl uppercase tracking-widest text-[11px] font-bold"
           >
             Browse Products
           </Button>
@@ -77,116 +77,115 @@ const Cart = () => {
     <div className="min-h-screen flex flex-col bg-stone-50">
       <Navbar />
 
-      <main className="flex-1">
-        <div className="container max-w-7xl mx-auto px-6 py-12">
-
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 border-b border-stone-200 pb-6">
-            <div>
-              <button
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-400 hover:text-amber-700 mb-4 transition-colors font-bold"
-              >
-                <ArrowLeft size={13} /> Continue Shopping
-              </button>
-              <h1 className="text-3xl font-serif font-bold text-stone-900">Your Cart</h1>
-            </div>
-            <div className="flex flex-col items-start md:items-end mt-2 md:mt-0">
-              <p className="text-stone-500 text-sm">
+      {/* Hero — dark hero consistent with all pages */}
+      <section className="bg-stone-900 text-stone-50 border-b border-amber-900/20">
+        <div className="container max-w-7xl mx-auto px-6 py-16 md:py-20">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-400 hover:text-amber-500 mb-6 transition-colors font-bold"
+          >
+            <ArrowLeft size={13} /> Continue Shopping
+          </button>
+          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500 mb-3">
+            Review Order
+          </p>
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight">
+              Your <span className="italic text-amber-400">Cart</span>
+            </h1>
+            <div className="flex items-center gap-3">
+              <span className="text-stone-400 text-sm">
                 {getCartItemCount()} item{getCartItemCount() !== 1 ? "s" : ""}
-              </p>
+              </span>
               {isLoading && (
-                <span className="text-[10px] text-amber-600 animate-pulse uppercase tracking-wider mt-1">
+                <span className="text-[10px] text-amber-500 animate-pulse uppercase tracking-wider">
                   Updating...
                 </span>
               )}
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <main className="flex-1 py-12 md:py-16">
+        <div className="container max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-10">
 
-            {/* Items */}
-            <div className="lg:col-span-8 space-y-3">
-              <div className="hidden md:grid grid-cols-12 px-5 mb-2 text-[10px] uppercase tracking-widest font-bold text-stone-400">
-                <div className="col-span-6">Product</div>
-                <div className="col-span-3 text-center">Quantity</div>
-                <div className="col-span-3 text-right">Total</div>
-              </div>
-
-              {cartItems.map((item) => (
-                <CartItem key={item._id} item={item} />
-              ))}
-
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={clearCart}
-                  className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-red-400 hover:text-red-600 font-bold transition-colors"
-                >
-                  <Trash2 size={12} /> Clear Cart
-                </button>
-              </div>
+          {/* Items */}
+          <div className="lg:col-span-8 space-y-3">
+            <div className="hidden md:grid grid-cols-12 px-5 mb-2 text-[10px] uppercase tracking-widest font-bold text-stone-400">
+              <div className="col-span-6">Product</div>
+              <div className="col-span-3 text-center">Quantity</div>
+              <div className="col-span-3 text-right">Total</div>
             </div>
 
-            {/* Summary */}
-            <div className="lg:col-span-4">
-              <div className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm sticky top-28">
-                <h2 className="text-base font-bold text-stone-900 mb-5 border-b border-stone-100 pb-4 uppercase tracking-widest text-[11px]">
-                  Order Summary
-                </h2>
+            {cartItems.map((item) => (
+              <CartItem key={item._id} item={item} />
+            ))}
 
-                <div className="space-y-3 text-sm mb-5">
-                  <div className="flex justify-between text-stone-600">
-                    <span>Subtotal</span>
-                    <span className="font-bold text-stone-900">₹{subtotal.toLocaleString("en-IN")}</span>
-                  </div>
-                  {discountData.p > 0 && (
-                    <div className="flex justify-between text-emerald-600">
-                      <span>Discount ({discountData.p}%)</span>
-                      <span>− ₹{discountData.amt.toLocaleString("en-IN")}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-stone-600">
-                    <span>Delivery</span>
-                    <span className="font-bold">
-                      {deliveryCharge === 0 ? (
-                        <span className="text-emerald-600">Free</span>
-                      ) : (
-                        `₹${deliveryCharge}`
-                      )}
-                    </span>
-                  </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={clearCart}
+                className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-red-400 hover:text-red-600 font-bold transition-colors"
+              >
+                <Trash2 size={12} /> Clear Cart
+              </button>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="lg:col-span-4">
+            <div className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm sticky top-28">
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 mb-5 pb-4 border-b border-stone-100">
+                Order Summary
+              </p>
+
+              <div className="space-y-3 text-sm mb-5">
+                <div className="flex justify-between text-stone-600">
+                  <span>Subtotal</span>
+                  <span className="font-bold text-stone-900">₹{subtotal.toLocaleString("en-IN")}</span>
                 </div>
-
-                <div className="border-t border-stone-200 pt-4 mb-6 flex justify-between items-baseline">
-                  <span className="font-bold text-stone-900 uppercase tracking-widest text-xs">Total</span>
-                  <span className="text-2xl font-bold text-amber-800">
-                    ₹{Math.round(totalPayable).toLocaleString("en-IN")}
+                {discountData.p > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-semibold">
+                    <span>Discount ({discountData.p}%)</span>
+                    <span>− ₹{discountData.amt.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-stone-600">
+                  <span>Delivery</span>
+                  <span className="font-bold">
+                    {deliveryCharge === 0
+                      ? <span className="text-emerald-600">Free</span>
+                      : `₹${deliveryCharge}`}
                   </span>
                 </div>
+              </div>
 
-                <Button
-                  onClick={handleProceedToCheckout}
-                  disabled={isCheckingOut || isLoading}
-                  className="w-full bg-stone-900 hover:bg-stone-800 text-white h-12 rounded-xl font-bold uppercase tracking-widest text-[11px] disabled:opacity-60"
-                >
-                  {isCheckingOut ? (
-                    <Loader2 className="animate-spin h-4 w-4" />
-                  ) : (
-                    "Proceed to Checkout"
-                  )}
-                </Button>
+              <div className="border-t border-stone-200 pt-4 mb-6 flex justify-between items-baseline">
+                <span className="font-bold text-stone-900 uppercase tracking-widest text-[10px]">Total</span>
+                <span className="text-2xl font-bold text-amber-800">
+                  ₹{Math.round(totalPayable).toLocaleString("en-IN")}
+                </span>
+              </div>
 
-                <div className="mt-6 space-y-2.5 border-t border-stone-100 pt-5">
-                  <div className="flex items-center gap-2.5 text-[10px] text-stone-400 uppercase tracking-wider font-bold">
-                    <ShieldCheck size={13} className="text-emerald-600" /> Secure Payment
-                  </div>
-                  <div className="flex items-center gap-2.5 text-[10px] text-stone-400 uppercase tracking-wider font-bold">
-                    <Zap size={13} className="text-amber-600" /> Fast Delivery
-                  </div>
+              <Button
+                onClick={handleProceedToCheckout}
+                disabled={isCheckingOut || isLoading}
+                className="w-full bg-stone-900 hover:bg-stone-800 text-white h-12 rounded-xl font-bold uppercase tracking-widest text-[11px] disabled:opacity-60 transition-all"
+              >
+                {isCheckingOut ? <Loader2 className="animate-spin h-4 w-4" /> : "Proceed to Checkout"}
+              </Button>
+
+              <div className="mt-6 space-y-2.5 border-t border-stone-100 pt-5">
+                <div className="flex items-center gap-2 text-[10px] text-stone-400 uppercase tracking-widest font-bold">
+                  <ShieldCheck size={13} className="text-emerald-600" /> Secure Payment
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-stone-400 uppercase tracking-widest font-bold">
+                  <Zap size={13} className="text-amber-600" /> Fast Delivery
                 </div>
               </div>
             </div>
           </div>
+
         </div>
       </main>
 

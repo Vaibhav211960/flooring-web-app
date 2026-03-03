@@ -37,87 +37,74 @@ export default function CategoryPage() {
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero */}
+        {/* Hero — matches all other pages */}
         <section className="bg-stone-900 text-stone-50 border-b border-amber-900/20">
           <div className="container max-w-7xl mx-auto px-6 py-16 md:py-24">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 mb-8">
+            <nav className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 font-bold mb-8">
               <Link to="/" className="hover:text-white flex items-center gap-1 transition-colors">
                 <HomeIcon className="h-3 w-3" /> Home
               </Link>
-              <ChevronRight className="h-3 w-3" />
-              <span className="text-amber-500 font-bold">Collections</span>
+              <ChevronRight className="h-3 w-3 text-stone-700" />
+              <span className="text-amber-500">Collections</span>
             </nav>
-
             <div className="max-w-3xl">
-              <p className="text-[10px] uppercase tracking-[0.4em] mb-3 text-amber-500 font-bold">
+              <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500 mb-3">
                 Our Catalog
               </p>
               <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold mb-5 leading-tight">
-                Flooring <span className="italic">Collections</span>
+                Flooring <span className="italic text-amber-400">Collections</span>
               </h1>
               <p className="text-stone-400 text-sm md:text-base leading-relaxed max-w-2xl">
-                Browse our range of flooring categories, each suited for different
-                styles and spaces.
+                Browse our range of flooring categories, each suited for different styles and spaces.
               </p>
             </div>
           </div>
         </section>
 
-        {/* Grid Section */}
-        <section className="py-16 md:py-24">
+        {/* Sticky search bar — same pattern as Product page */}
+        <div className="sticky top-[64px] z-30 bg-white/90 backdrop-blur-md border-b border-stone-200">
+          <div className="container max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="relative w-full md:max-w-md">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+              <input
+                type="text"
+                placeholder="Search collections..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-stone-100 border border-transparent rounded-xl py-3 pl-11 pr-4 text-sm focus:bg-white focus:border-amber-500 outline-none transition-all placeholder:text-stone-400"
+              />
+            </div>
+            {!isLoading && (
+              <span className="text-xs text-stone-400 font-medium">
+                <span className="text-stone-900 font-bold">{filteredSubcategories.length}</span> collections
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Grid */}
+        <section className="py-12 md:py-16">
           <div className="container max-w-7xl mx-auto px-6">
 
-            {/* Header + Search */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-              <div className="flex items-center gap-4 flex-1">
-                <h2 className="font-serif text-3xl font-bold text-stone-900 whitespace-nowrap">
-                  All Collections
-                </h2>
-                <div className="h-px flex-1 bg-stone-200 hidden sm:block" />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="relative w-full md:w-72">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 h-4 w-4" />
-                  <input
-                    type="text"
-                    placeholder="Search collections..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-white border border-stone-200 rounded-xl py-3 pl-11 pr-4 text-sm focus:border-amber-500 outline-none transition-all shadow-sm placeholder:text-stone-400"
-                  />
-                </div>
-                {!isLoading && (
-                  <span className="hidden lg:block text-[10px] font-bold text-stone-400 uppercase tracking-widest bg-stone-100 px-3 py-1.5 rounded-full whitespace-nowrap">
-                    {filteredSubcategories.length} items
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Loading */}
             {isLoading && (
               <div className="flex flex-col items-center justify-center py-24">
                 <Loader2 className="w-8 h-8 text-amber-600 animate-spin mb-4" />
-                <p className="text-stone-400 text-sm italic">Loading collections...</p>
+                <p className="text-stone-400 text-sm italic tracking-widest">Loading collections...</p>
               </div>
             )}
 
-            {/* Error */}
             {error && !isLoading && (
               <div className="text-center py-16 bg-red-50 rounded-2xl border border-red-100">
-                <p className="text-red-600 font-medium text-sm">{error}</p>
+                <p className="text-red-600 font-medium text-sm mb-4">{error}</p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors"
+                  className="px-6 h-10 bg-red-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-700 transition-colors"
                 >
                   Try Again
                 </button>
               </div>
             )}
 
-            {/* Grid */}
             {!isLoading && !error && (
               <>
                 {filteredSubcategories.length > 0 ? (
@@ -137,8 +124,8 @@ export default function CategoryPage() {
                     <div className="bg-stone-100 w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Search className="h-6 w-6 text-stone-400" />
                     </div>
-                    <h3 className="text-stone-900 font-serif text-lg font-bold">No results found</h3>
-                    <p className="text-stone-500 text-sm mt-2">
+                    <h3 className="text-stone-900 font-serif text-lg font-bold mb-2">No results found</h3>
+                    <p className="text-stone-500 text-sm">
                       No collections match "{searchQuery}"
                     </p>
                     <button
