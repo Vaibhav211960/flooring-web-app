@@ -1,89 +1,83 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet.jsx";
 import { Button } from "../ui/button.jsx";
-import { ShoppingCart, Trash2 } from "lucide-react";
-import { ScrollArea } from "../ui/scrollArea.jsx"
+import { ShoppingCart, Trash2, X } from "lucide-react";
+import { ScrollArea } from "../ui/scrollArea.jsx";
 import { Separator } from "../ui/separator.jsx";
-import { Badge } from "../ui/badge.jsx";
-import { useToast } from "../hooks/useToast.jsx";
+import { useCart } from "../context/CartContext";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export function CartSheet() {
-  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [cart, setCart] = useState([
-    // Sample cart items for demonstration
-    { id: "1", title: "Oak Wood Flooring", price: 5.99, quantity: 2 },
-    { id: "2", title: "Maple Wood Flooring", price: 6.49, quantity: 1 },
-  ]);
-  const cartTotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const removeFromCart = (itemId) => {
-    setCart(cart.filter(item => item.id !== itemId));
-  }
-  const handleCheckout = () => {
-    setIsCheckingOut(true); 
-    setTimeout(() => {
-      setIsCheckingOut(false);
-      setIsOpen(false);
-      setCart([]);
-      toast({
-        title: "Checkout Successful",
-        description: "Your order has been placed successfully.",
-        duration: 5000,
-      });
-    }, 2000);
-  };
+  const navigate = useNavigate();
+  const { cartItems, getCartTotal, getCartItemCount, removeFromCart, isLoading } = useCart();
+  const cartTotal = getCartTotal();
+  const itemCount = getCartItemCount();
 
+  const handleViewCart = () => {
+    setIsOpen(false);
+    navigate("/cart");
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <ShoppingCart className="h-5 w-5" />
-          {cart.length > 0 && (
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs rounded-full animate-in zoom-in">
-              {cart.reduce((acc, item) => acc + item.quantity, 0)}
-            </Badge>
+          <ShoppingCart className="h-5 w-5 text-stone-600" />
+          {itemCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 bg-amber-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+              {itemCount > 9 ? "9+" : itemCount}
+            </span>
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full sm:w-[400px] flex flex-col pr-0">
-        <SheetHeader className="px-1">
-          <SheetTitle className="font-serif text-2xl">Your Cart</SheetTitle>
+
+      <SheetContent className="w-full sm:w-[400px] flex flex-col">
+        <SheetHeader className="pb-4 border-b border-stone-100">
+          <SheetTitle className="font-serif text-xl text-stone-900">Your Cart</SheetTitle>
+          {itemCount > 0 && (
+            <p className="text-xs text-stone-400">{itemCount} item{itemCount !== 1 ? "s" : ""}</p>
+          )}
         </SheetHeader>
 
-        <ScrollArea className="flex-1 -mx-6 px-6 my-4">
-          {cart.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[50vh] text-muted-foreground">
-              <ShoppingCart className="h-12 w-12 mb-4 opacity-20" />
-              <p>Your cart is empty</p>
+        <ScrollArea className="flex-1 my-4 -mx-6 px-6">
+          {cartItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[40vh] text-center">
+              <ShoppingCart className="h-10 w-10 text-stone-200 mb-4" />
+              <p className="text-stone-400 text-sm italic font-serif">Your cart is empty.</p>
+              <button
+                onClick={() => { setIsOpen(false); navigate("/products"); }}
+                className="mt-4 text-amber-700 text-xs font-bold uppercase tracking-widest hover:underline"
+              >
+                Browse Products
+              </button>
             </div>
           ) : (
-            <div className="space-y-6">
-              {cart.map((item) => (
-                <div key={item.id} className="flex gap-4">
-                  <div className="h-20 w-20 rounded-md overflow-hidden border bg-secondary/20 shrink-0 flex items-center justify-center">
-                    <div className="text-2xl text-muted-foreground/30">🏠</div>
+            <div className="space-y-4">
+              {cartItems.map((item) => (
+                <div key={item._id} className="flex gap-4 py-2">
+                  <div className="h-16 w-16 rounded-xl overflow-hidden border border-stone-100 bg-stone-50 shrink-0">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-stone-300 text-xl">🏠</div>
+                    )}
                   </div>
-                  <div className="flex-1 flex flex-col justify-between">
+                  <div className="flex-1 flex flex-col justify-between min-w-0">
                     <div>
-                      <h4 className="font-medium font-serif line-clamp-1">{item.title}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        ${item.price.toFixed(2)} x {item.quantity}
-                      </p>
+                      <h4 className="font-semibold text-stone-900 text-sm font-serif line-clamp-1">{item.name}</h4>
+                      <p className="text-xs text-stone-400 mt-0.5">Qty: {item.quantity}</p>
                     </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="font-medium">
-                        ${(item.price * item.quantity).toFixed(2)}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-stone-900">
+                        ₹{(item.price * item.quantity).toLocaleString("en-IN")}
                       </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeFromCart(item.id)}
+                      <button
+                        onClick={() => removeFromCart(item._id)}
+                        className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <X size={14} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -92,20 +86,19 @@ export function CartSheet() {
           )}
         </ScrollArea>
 
-        {cart.length > 0 && (
-          <div className="space-y-4 pr-6">
-            <Separator />
-            <div className="flex items-center justify-between font-serif text-lg font-medium">
-              <span>Total</span>
-              <span>${cartTotal.toFixed(2)}</span>
+        {cartItems.length > 0 && (
+          <div className="space-y-4 pt-4 border-t border-stone-100">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-stone-700">Total</span>
+              <span className="text-lg font-bold text-stone-900">
+                ₹{cartTotal.toLocaleString("en-IN")}
+              </span>
             </div>
             <Button
-              className="w-full"
-              size="lg"
-              onClick={handleCheckout}
-              disabled={isCheckingOut}
+              onClick={handleViewCart}
+              className="w-full bg-stone-900 hover:bg-stone-800 text-white rounded-xl h-12 font-bold uppercase tracking-widest text-[11px]"
             >
-              {isCheckingOut ? "Processing..." : "Checkout"}
+              View Cart & Checkout
             </Button>
           </div>
         )}

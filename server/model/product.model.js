@@ -2,49 +2,45 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
-    name: {
+    name: { type: String, required: true, unique: true, trim: true },
+    sku: { type: String, unique: true, required: true, uppercase: true, trim: true },
+    description: { type: String, required: true },
+    image: { type: String, required: true },
+
+    price: { type: Number, required: true }, 
+    pricePerBox: { type: Number },
+    unit: { 
+      type: String, 
+      enum: ["sqft", "box", "plank", "meter"], 
+      default: "sqft" 
+    },
+    stock: { type: Number, required: true },
+
+    // --- ADDED FOR CALCULATOR LOGIC ---
+    coveragePerBox: { 
+      type: Number, 
+      required: true, 
+      default: 1 // Crucial for your room area calculator
+    },
+
+    materialType: { type: String, required: true }, 
+    woodType: { type: String },
+    color: { type: String },
+    
+    // --- ADDED FOR SEARCH FILTERS ---
+    colorFamily: { 
+      type: String, 
+      enum: ["Light", "Medium", "Dark", "Gray", "Natural", "White"] 
+    },
+
+    finish: { type: String },
+    thicknessMM: { type: Number },
+    plankSize: { type: String },
+    
+    waterResistance: {
       type: String,
-      required: true,
-      unique: true,
-      // maxlength: 120,
-    },
-
-    stock: {
-      type: Number,
-      required: true,
-    },
-
-    price: {
-      type: Number,
-      required: true,
-    },
-
-    unit: {
-      type: String,
-      enum: ["sqft", "box", "plank"],
-      default: "sqft",
-    },
-
-    woodType: {
-      type: String,
-      required: true,
-    },
-
-    finish: {
-      type: String,
-    },
-
-    thicknessMM: {
-      type: Number,
-    },
-    color: {
-      type: String,
-    },
-
-    description: {
-      type: String,
-      required: true,
-      // maxlength: 200,
+      enum: ["Waterproof", "Water-resistant", "Not-resistant"],
+      default: "Not-resistant",
     },
 
     subCategoryId: {
@@ -52,16 +48,7 @@ const productSchema = new mongoose.Schema(
       ref: "SubCategory",
       required: true,
     },
-
-    image: {
-      type: String,
-      required: true,
-      // maxlength: 255,
-    }, 
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

@@ -2,38 +2,24 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
-  User,
-  Mail,
-  Lock,
-  UserPlus,
-  ChevronRight,
-  Home as HomeIcon,
-  Eye,
-  EyeOff,
+  User, Mail, Lock, UserPlus, ChevronRight, Home as HomeIcon, Eye, EyeOff,
 } from "lucide-react";
-
+import { toast } from "react-hot-toast";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { useToast } from "../hooks/useToast.jsx";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
+    name: "", email: "", password: "", confirmPassword: "",
   });
-
   const [errors, setErrors] = useState({});
 
   const validateField = (name, value, data = formData) => {
@@ -45,8 +31,7 @@ export default function Register() {
         return "";
       case "email":
         if (!value.trim()) return "Email is required";
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
-          return "Invalid email address";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Enter a valid email address";
         return "";
       case "password":
         if (!value) return "Password is required";
@@ -78,37 +63,20 @@ export default function Register() {
     Object.keys(formData).forEach((key) => {
       newErrors[key] = validateField(key, formData[key], formData);
     });
-
     setErrors(newErrors);
     if (Object.values(newErrors).some(Boolean)) return;
 
     setIsLoading(true);
-
     try {
       await axios.post("http://localhost:5000/api/users/signup", {
         name: formData.name,
         email: formData.email,
         password: formData.password,
       });
-
-      // TRIGGER SUCCESS TOAST
-      toast({
-        title: "Success!",
-        description: "Account created successfully. Redirecting...",
-        className: "bg-stone-950 border border-stone-800 text-white rounded-xl shadow-2xl p-6",
-      });
-
-      setTimeout(() => navigate("/login"), 1500);
+      toast.success("Account created! Redirecting to login...");
+      setTimeout(() => navigate("/login"), 1200);
     } catch (error) {
-      const message = error.response?.data?.message || "Something went wrong.";
-      
-      // TRIGGER ERROR TOAST
-      toast({
-        title: "Registration failed",
-        description: message,
-        variant: "destructive",
-        className: "bg-stone-950 border border-stone-800 text-white rounded-xl shadow-2xl p-6",
-      });
+      toast.error(error.response?.data?.message || "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -117,9 +85,7 @@ export default function Register() {
   const InlineError = ({ message }) => {
     if (!message) return null;
     return (
-      <div className="bg-red-50 border border-red-100 p-2 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-        <p className="text-[10px] text-red-600 font-medium">{message}</p>
-      </div>
+      <p className="text-[10px] text-red-500 font-semibold mt-1">{message}</p>
     );
   };
 
@@ -127,6 +93,7 @@ export default function Register() {
     <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900">
       <Navbar />
 
+      {/* Hero */}
       <section className="bg-stone-900 text-stone-50 border-b border-amber-900/20">
         <div className="container max-w-7xl mx-auto px-6 py-12 md:py-16 text-center">
           <nav className="flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 mb-6">
@@ -134,28 +101,30 @@ export default function Register() {
               <HomeIcon className="h-3 w-3" /> Home
             </Link>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-amber-500 font-bold tracking-widest uppercase">Join Us</span>
+            <span className="text-amber-500 font-bold">Register</span>
           </nav>
-          <h1 className="font-serif text-4xl md:text-5xl font-bold mb-4">
-            Create Your <span className="italic text-amber-500">Profile</span>
+          <h1 className="font-serif text-4xl md:text-5xl font-bold mb-3">
+            Create an <span className="italic text-amber-400">Account</span>
           </h1>
-          <p className="text-stone-400 text-sm max-w-lg mx-auto leading-relaxed">
-            Join our community to save your favorite finishes and track projects.
+          <p className="text-stone-400 text-sm max-w-md mx-auto leading-relaxed">
+            Sign up to track orders and manage your profile.
           </p>
         </div>
       </section>
 
+      {/* Form */}
       <div className="flex-1 flex items-center justify-center py-12 px-6">
-        <div className="w-full max-w-[500px] bg-white rounded-2xl border border-stone-200 shadow-xl overflow-hidden">
+        <div className="w-full max-w-[500px] bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
           <div className="p-8 md:p-10">
             <div className="flex justify-center mb-6">
-              <div className="p-3 bg-amber-50 rounded-full">
-                <UserPlus className="w-8 h-8 text-amber-700" />
+              <div className="p-3 bg-amber-50 rounded-full border border-amber-100">
+                <UserPlus className="w-7 h-7 text-amber-700" />
               </div>
             </div>
 
             <form onSubmit={handleRegister} className="space-y-5">
-              <div className="space-y-2">
+              {/* Name */}
+              <div className="space-y-1.5">
                 <Label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Full Name</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3.5 h-4 w-4 text-stone-400" />
@@ -164,12 +133,14 @@ export default function Register() {
                     value={formData.name}
                     onChange={handleChange}
                     className="pl-10 h-12 bg-stone-50 border-stone-200 rounded-xl"
+                    placeholder="Your name"
                   />
                 </div>
                 <InlineError message={errors.name} />
               </div>
 
-              <div className="space-y-2">
+              {/* Email */}
+              <div className="space-y-1.5">
                 <Label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Email Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3.5 h-4 w-4 text-stone-400" />
@@ -178,13 +149,15 @@ export default function Register() {
                     value={formData.email}
                     onChange={handleChange}
                     className="pl-10 h-12 bg-stone-50 border-stone-200 rounded-xl"
+                    placeholder="name@example.com"
                   />
                 </div>
                 <InlineError message={errors.email} />
               </div>
 
+              {/* Password + Confirm */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Password</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3.5 h-4 w-4 text-stone-400" />
@@ -206,7 +179,7 @@ export default function Register() {
                   <InlineError message={errors.password} />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Confirm</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3.5 h-4 w-4 text-stone-400" />
@@ -230,16 +203,16 @@ export default function Register() {
               </div>
 
               <Button
-                className="w-full h-14 bg-stone-900 text-white hover:bg-stone-800 rounded-xl font-bold uppercase tracking-widest transition-all active:scale-[0.98]"
+                className="w-full h-12 bg-stone-900 text-white hover:bg-stone-800 rounded-xl font-bold uppercase tracking-widest"
                 disabled={isLoading}
                 type="submit"
               >
-                {isLoading ? "Processing..." : "Create Account"}
+                {isLoading ? "Creating account..." : "Create Account"}
               </Button>
             </form>
           </div>
 
-          <div className="bg-stone-50 p-6 border-t border-stone-100 text-center">
+          <div className="bg-stone-50 px-8 py-5 border-t border-stone-100 text-center">
             <p className="text-xs text-stone-500">
               Already have an account?{" "}
               <Link to="/login" className="text-amber-700 font-bold hover:underline">
@@ -249,6 +222,7 @@ export default function Register() {
           </div>
         </div>
       </div>
+
       <Footer />
     </div>
   );
