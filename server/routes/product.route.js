@@ -3,7 +3,6 @@ import {
   getAllProducts,
   getProductById,
   getProductsBySubCategory,
-  searchProducts,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -14,7 +13,6 @@ const router = express.Router();
 
 // customer
 router.get("/", getAllProducts);
-router.get("/search", searchProducts);
 router.get("/:id", getProductById);
 router.get("/subcategory/:catId", getProductsBySubCategory);
 

@@ -5,7 +5,7 @@ import {
   CreditCard, ChevronRight, Home,
   ShieldCheck, Zap, Layers, Box, Loader2, Warehouse,
   Palette, Star, Send, CheckCircle2, Lock,
-  Pencil, Trash2, X, Check,
+  Pencil, Trash2, X, Check, Droplets, Wrench, Maximize, Ruler
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -23,12 +23,12 @@ export default function ProductDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // --- FEEDBACK STATES ---
   const [reviews, setReviews] = useState([]);
   const [isEligible, setIsEligible] = useState(false);
   const [reviewText, setReviewText] = useState("");
   const [rating, setRating] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState("");
   const [editRating, setEditRating] = useState(5);
@@ -66,6 +66,7 @@ export default function ProductDetails() {
     if (id) fetchProductAndReviews();
   }, [id]);
 
+  // --- FEEDBACK LOGIC ---
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
     if (!reviewText.trim()) return;
@@ -127,13 +128,37 @@ export default function ProductDetails() {
     ), { duration: 8000 });
   };
 
+  // --- BUY NOW LOGIC ---
   const handleBuyNow = () => {
     if (!product) return;
-    if (!localStorage.getItem("UserToken")) { toast.error("Please sign in to continue."); navigate("/login"); return; }
-    const orderProduct = { _id: product._id, name: product.name, price: product.price, image: product.image, woodType: product.woodType, thicknessMM: product.thicknessMM, unit: product.unit };
-    localStorage.setItem("pending_product", JSON.stringify(orderProduct));
-    localStorage.setItem("pending_qty", qty);
-    navigate(`/buy-now/${product._id}`, { state: { quantity: qty } });
+    if (!localStorage.getItem("UserToken")) { 
+      toast.error("Please sign in to continue."); 
+      navigate("/login"); 
+      return; 
+    }
+    
+    const singleBuyData = {
+      productId: product._id,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+      unit: product.unit,
+      quantity: qty,
+      total: product.price * qty
+    };
+
+    localStorage.setItem("single_buy_product", JSON.stringify(singleBuyData));
+    navigate(`/buy-now/${product._id}`, { state: { quantity: qty, flow: 'single' } });
+  };
+
+  // --- DYNAMIC COVERAGE CALCULATION ---
+  // Calculates Total Square Feet based on Quantity * Length * Width
+  // Assumes product.length and product.width are numeric values representing feet.
+  const calculateTotalCoverage = () => {
+    if (!product) return 0;
+    const l = product.length || 1;
+    const w = product.width || 1;
+    return (qty * l * w).toFixed(2);
   };
 
   if (isLoading) return (
@@ -161,7 +186,7 @@ export default function ProductDetails() {
         <div className="container max-w-7xl mx-auto px-6 py-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 font-bold">
           <Link to="/" className="hover:text-amber-700 flex items-center gap-1 transition-colors"><Home size={11} /> Home</Link>
           <ChevronRight size={10} />
-          <Link to="/products" className="hover:text-amber-700 transition-colors">Products</Link>
+          <Link to="/products" className="hover:text-amber-700 transition-colors">Collections</Link>
           <ChevronRight size={10} />
           <span className="text-stone-700 truncate max-w-[150px]">{product.name}</span>
         </div>
@@ -170,14 +195,25 @@ export default function ProductDetails() {
       <main className="flex-grow container max-w-7xl mx-auto px-6 py-10 md:py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
 
-          {/* LEFT */}
-          <div className="lg:col-span-7 space-y-12">
-            <div className="aspect-square bg-white rounded-xl border border-stone-200 overflow-hidden shadow-sm">
+          {/* LEFT COLUMN: Media & Reviews */}
+          <div className="lg:col-span-6 xl:col-span-7 space-y-12">
+            <div className="aspect-square bg-white rounded-xl border border-stone-200 overflow-hidden shadow-sm relative">
               <img src={product.image} className="w-full h-full object-cover" alt={product.name} />
+              {product.waterResistance === "Waterproof" && (
+                <div className="absolute top-4 left-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 shadow-md">
+                  <Droplets size={12} /> Waterproof
+                </div>
+              )}
             </div>
 
-            {/* Reviews */}
             <section className="space-y-6">
+               <h3 className="font-serif text-3xl text-stone-800 leading-tight italic border-b border-stone-200 pb-6">
+                 "{product.description}"
+               </h3>
+            </section>
+
+            {/* Reviews Section */}
+            <section className="space-y-6 pt-6">
               <div className="border-b border-stone-200 pb-4 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 mb-1">Customer Reviews</p>
@@ -197,7 +233,7 @@ export default function ProductDetails() {
                   </div>
                   <div className="flex gap-1.5">
                     {[1,2,3,4,5].map((star) => (
-                      <button key={star} onClick={() => setRating(star)}>
+                      <button type="button" key={star} onClick={() => setRating(star)}>
                         <Star size={20} fill={star <= rating ? "#b45309" : "none"} className={star <= rating ? "text-amber-700" : "text-stone-300"} />
                       </button>
                     ))}
@@ -235,7 +271,7 @@ export default function ProductDetails() {
                           </div>
                           <div className="flex gap-1.5">
                             {[1,2,3,4,5].map((star) => (
-                              <button key={star} onClick={() => setEditRating(star)}>
+                              <button type="button" key={star} onClick={() => setEditRating(star)}>
                                 <Star size={18} fill={star <= editRating ? "#b45309" : "none"} className={star <= editRating ? "text-amber-700" : "text-stone-300"} />
                               </button>
                             ))}
@@ -295,37 +331,90 @@ export default function ProductDetails() {
             </section>
           </div>
 
-          {/* RIGHT */}
-          <div className="lg:col-span-5 flex flex-col gap-8">
+          {/* RIGHT COLUMN: Commerce & Specs Matrix */}
+          <div className="lg:col-span-6 xl:col-span-5 flex flex-col gap-8">
+            {/* Header Block */}
             <div className="space-y-2">
-              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-[0.4em] block">{product.woodType} Collection</span>
+              <div className="flex items-center justify-between">
+                 <span className="text-[10px] font-bold text-amber-700 uppercase tracking-[0.4em] block">{product.materialType} / {product.woodType}</span>
+                 <span className="text-[10px] font-mono text-stone-400 uppercase bg-stone-100 px-2 py-1 rounded-md">SKU: {product.sku}</span>
+              </div>
+              
               <h1 className="text-4xl md:text-5xl font-serif font-semibold text-stone-900 leading-tight">{product.name}</h1>
-              <div className="flex items-baseline gap-2 pt-2">
-                <span className="text-3xl font-medium text-stone-900">₹{product.price.toLocaleString()}</span>
-                <span className="text-stone-500 text-sm">/ per {product.unit}</span>
+              
+              <div className="pt-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-medium text-stone-900">₹{product.price.toLocaleString()}</span>
+                  <span className="text-stone-500 text-sm">/ per {product.unit}</span>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: Layers, label: "Thickness", value: `${product.thicknessMM} mm` },
-                { icon: Box, label: "Finish", value: product.finish },
-                { icon: Palette, label: "Color", value: product.color || "Natural" },
-                { icon: Warehouse, label: "In Stock", value: `${product.stock} ${product.unit}s`, valueClass: product.stock > 20 ? "text-emerald-600" : "text-amber-600" },
-              ].map(({ icon: Icon, label, value, valueClass }) => (
-                <div key={label} className="p-4 rounded-xl bg-white border border-stone-200 shadow-sm flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-stone-400">
-                    <Icon size={13} /><span className="text-[9px] uppercase tracking-widest font-bold">{label}</span>
+            {/* NEW: Unified Specs & Visuals Matrix */}
+            <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+               <div className="px-5 py-3 bg-stone-50 border-b border-stone-200 flex items-center gap-2">
+                 <Wrench size={14} className="text-amber-700" />
+                 <span className="text-[10px] uppercase font-bold tracking-widest text-stone-600">Material Matrix</span>
+               </div>
+               <div className="grid grid-cols-2 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-stone-100 border-b border-stone-100">
+                  <div className="p-4 flex flex-col gap-1">
+                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Ruler size={10}/> Length</span>
+                     <span className="text-sm font-semibold text-stone-800">{product.length || "N/A"} ft</span>
                   </div>
-                  <span className={`text-sm font-semibold text-stone-800 ${valueClass || ""}`}>{value}</span>
-                </div>
-              ))}
+                  <div className="p-4 flex flex-col gap-1">
+                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Ruler size={10}/> Width</span>
+                     <span className="text-sm font-semibold text-stone-800">{product.width || "N/A"} ft</span>
+                  </div>
+                  <div className="p-4 flex flex-col gap-1">
+                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Layers size={10}/> Thickness</span>
+                     <span className="text-sm font-semibold text-stone-800">{product.thicknessMM} mm</span>
+                  </div>
+               </div>
+               <div className="grid grid-cols-2 md:grid-cols-3 divide-x divide-stone-100">
+                  <div className="p-4 flex flex-col gap-1">
+                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Box size={10}/> Finish</span>
+                     <span className="text-sm font-semibold text-stone-800">{product.finish || "Standard"}</span>
+                  </div>
+                  <div className="p-4 flex flex-col gap-1">
+                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Palette size={10}/> Color</span>
+                     <span className="text-sm font-semibold text-stone-800">{product.color || "Natural"}</span>
+                  </div>
+                  <div className="p-4 flex flex-col gap-1">
+                     <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Warehouse size={10}/> Status</span>
+                     <span className={`text-sm font-semibold ${product.stock > 20 ? "text-emerald-600" : "text-amber-600"}`}>
+                       {product.stock} left
+                     </span>
+                  </div>
+               </div>
             </div>
 
+            {/* Added details for installation & heating */}
+            <div className="flex gap-4">
+              {product.installationMethod && (
+                <div className="flex-1 bg-stone-100/50 border border-stone-200 rounded-xl p-3 flex items-center gap-3">
+                  <Wrench size={16} className="text-stone-400"/>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400">Install Method</p>
+                    <p className="text-xs font-bold text-stone-800">{product.installationMethod}</p>
+                  </div>
+                </div>
+              )}
+              {product.isRadiantHeatCompatible && (
+                <div className="flex-1 bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-3">
+                  <Zap size={16} className="text-amber-600"/>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-amber-700">Radiant Heat</p>
+                    <p className="text-xs font-bold text-amber-900">Compatible</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ACTION AREA */}
             <div className="space-y-5 pt-5 border-t border-stone-200">
-              <span className="mb-2 text-[1vw] text-stone-500 ml-2">minimum 10 quantity required</span>
+              
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-widest text-stone-500">Quantity ({product.unit})</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-stone-500">Order Quantity</span>
                 <div className="flex items-center bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
                   <button onClick={() => setQty(Math.max(10, qty - 1))} className="px-4 py-2.5 hover:bg-stone-50 text-stone-600 font-bold transition-colors">−</button>
                   <span className="px-5 py-2.5 font-bold text-stone-900 border-x border-stone-100 min-w-[3rem] text-center">{qty}</span>
@@ -333,21 +422,36 @@ export default function ProductDetails() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3">
-                <Button onClick={handleBuyNow}
-                  className="w-full h-12 bg-stone-900 text-white hover:bg-stone-800 text-sm font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-3 border-none">
-                  <CreditCard size={17} className="text-amber-400" />
-                  {localStorage.getItem("UserToken") ? "Buy Now" : "Sign In to Buy"}
-                </Button>
-                <AddToCartButton product={product} qty={qty} className="h-12 text-sm" />
+              {/* NEW DYNAMIC COVERAGE CALCULATOR */}
+              <div className="flex items-center justify-between bg-stone-900 text-amber-500 p-4 rounded-xl shadow-inner">
+                <div className="flex items-center gap-3">
+                   <Maximize size={18} className="opacity-80" />
+                   <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Calculated Coverage</p>
+                      <p className="text-xs font-medium text-stone-300 italic mt-0.5">Based on L × W × Qty</p>
+                   </div>
+                </div>
+                <div className="text-right">
+                   <span className="text-2xl font-mono font-bold text-white">{calculateTotalCoverage()}</span>
+                   <span className="text-[10px] font-bold uppercase tracking-widest ml-1 text-stone-400">sq.ft</span>
+                </div>
               </div>
 
-              <div className="flex items-center justify-center gap-6 pt-1">
-                <div className="flex items-center gap-1.5 text-[10px] text-stone-400 uppercase font-bold">
-                  <ShieldCheck size={13} className="text-emerald-500" /> Secure Payment
+              <div className="flex flex-col gap-3 pt-2">
+                <Button onClick={handleBuyNow}
+                  className="w-full h-14 bg-amber-600 text-white hover:bg-amber-500 text-sm font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-3 border-none shadow-lg active:scale-95 transition-all">
+                  <CreditCard size={17} />
+                  {localStorage.getItem("UserToken") ? "Proceed to Checkout" : "Sign In to Purchase"}
+                </Button>
+                <AddToCartButton product={product} qty={qty} className="h-14 text-sm rounded-xl bg-white border border-stone-200 text-stone-900 hover:bg-stone-50" />
+              </div>
+
+              <div className="flex items-center justify-center gap-6 pt-4 border-t border-stone-100">
+                <div className="flex items-center gap-1.5 text-[9px] text-stone-400 uppercase font-bold tracking-widest">
+                  <ShieldCheck size={14} className="text-emerald-500" /> Secure Escrow
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-stone-400 uppercase font-bold">
-                  <Zap size={13} className="text-amber-500" /> Fast Delivery
+                <div className="flex items-center gap-1.5 text-[9px] text-stone-400 uppercase font-bold tracking-widest">
+                  <Zap size={14} className="text-amber-500" /> Fast Logistics
                 </div>
               </div>
             </div>

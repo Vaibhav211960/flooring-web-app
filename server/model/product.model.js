@@ -35,7 +35,8 @@ const productSchema = new mongoose.Schema(
 
     finish: { type: String },
     thicknessMM: { type: Number },
-    plankSize: { type: String },
+    lengthMM: { type: Number },
+    widthMM: { type: Number },
     
     waterResistance: {
       type: String,

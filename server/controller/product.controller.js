@@ -6,13 +6,20 @@ import SubCategory from "../model/subcategory.model.js";
  */
 export const getAllProducts = async (req, res) => {
   try {
+    // 3. Fetch products with the new schema fields
     const products = await Product.find()
       .populate("subCategoryId", "name")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ products });
+    // 4. Return success status with count (useful for admin dashboards)
+    res.status(200).json({ 
+      success: true,
+      count: products.length,
+      products 
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Fetch Products Error:", err.message);
+    res.status(500).json({ message: "Server error while retrieving collections" });
   }
 };
 
@@ -21,18 +28,38 @@ export const getAllProducts = async (req, res) => {
  */
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findOne({
-      _id: req.params.id,
-      isActive: true,
-    }).populate("subCategoryId", "name");
+    const { id } = req.params;
+
+    // 1. Fetch the product
+    // We remove the hard 'isActive' check here so Admins can still fetch it.
+    // If you only want users to see active products, handle that in the Frontend 
+    // or add a check: if (!product.isActive && req.user.role !== 'admin')
+    const product = await Product.findById(id)
+      .populate("subCategoryId", "name");
 
     if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+      return res.status(404).json({ 
+        success: false, 
+        message: "The specified material specification could not be found." 
+      });
     }
 
-    res.status(200).json({ product });
+    // 2. Bonus: Fetch Related Products (Real-world feature!)
+    // This finds other products in the same category so the user can compare.
+    const relatedProducts = await Product.find({
+      subCategoryId: product.subCategoryId,
+      _id: { $ne: id }, // Don't include the current product
+      isActive: true
+    }).limit(4);
+
+    res.status(200).json({ 
+      success: true,
+      product,
+      relatedProducts // Your frontend can now show "You might also like"
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Single Product Fetch Error:", err.message);
+    res.status(500).json({ message: "Server error while retrieving product specs" });
   }
 };
 
@@ -40,122 +67,161 @@ export const getProductById = async (req, res) => {
  * CUSTOMER: Get products by subcategory
  */
 export const getProductsBySubCategory = async (req, res) => {
-  // console.log("hhh");
-  
-  // console.log(catId);
   try {
     const { catId } = req.params;
 
-    const products = await Product.find({ subCategoryId: catId }).sort({ createdAt: -1 });
-
-    res.status(200).json({ products });
-  } catch (err) {
-    res.status(500).json({ err: "hvcnvvv" });
-  }
-};
-
-/**
- * CUSTOMER: Search products
- */
-export const searchProducts = async (req, res) => {
-  try {
-    const { q } = req.query;
-
-    if (!q) {
-      return res.status(400).json({ message: "Search query required" });
+    // 1. Basic Validation: Ensure catId exists
+    if (!catId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Category ID is required to fetch collections." 
+      });
     }
 
-    const products = await Product.find({
-      name: { $regex: q, $options: "i" },
-      isActive: true,
+    // 2. Fetch Active Products with your New Schema fields
+    // We filter by isActive so users don't see out-of-stock/archived items
+    const products = await Product.find({ 
+      subCategoryId: catId,
+      isActive: true 
+    })
+    .sort({ createdAt: -1 });
+
+    // 3. Return a clean industrial response
+    res.status(200).json({ 
+      success: true,
+      count: products.length,
+      products 
     });
 
-    res.status(200).json({ products });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Fetch Category Products Error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Unable to retrieve the specified material category." 
+    });
   }
 };
 
 /**
- * ADMIN: Create product
+ * ADMIN: Create Product
  */
-export const createProduct = async (req, res) => {
-  console.log(req.body);
-  
+export const createProduct = async (req, res) => { 
   try {
+    // 1. Destructure ALL fields from the new schema
     const {
       name,
-      stock,
-      price,
+      sku, // New
       description,
-      subCategoryId,
       image,
+      price,
+      pricePerBox, // New
       unit,
+      stock,
+      materialType, // New
       woodType,
+      color,
+      colorFamily, // New
       finish,
       thicknessMM,
-      color,
+      lengthMM,
+      widthMM,
+      waterResistance, // New
+      subCategoryId,
       status,
     } = req.body;
 
-    // stock = Number(stock);
-    // price = Number(price);
-    // thicknessMM = Number(thicknessMM);
+    // Determine active status based on admin input
     const isActive = status === 'inactive' ? false : true;
+
+    // 2. Strict Validation for REQUIRED fields
+    // Note: Checking !== undefined for numbers allows stock/price to be 0
     if (
-      !name ||
-      !stock ||
-      !price ||
-      !description ||
-      !subCategoryId ||
-      !image
-    ) {
-      return res.status(400).json({ message: "All required fields must be filled" });
+      !name || !sku || !description || !image || !materialType || !subCategoryId ||
+      price === undefined || stock === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Missing critical fields. Name, SKU, Price, Stock, Coverage Per Box, Material Type, SubCategory, Description, and Image are required." 
+      });
     }
 
-    const existingProduct = await Product.findOne({ name });
+    // 3. Uniqueness Check (Check BOTH Name and SKU)
+    const existingProduct = await Product.findOne({ 
+      $or: [{ name: name }, { sku: sku }] 
+    });
+    
     if (existingProduct) {
-      return res.status(400).json({ message: "Product with this name already exists" });
+      if (existingProduct.sku === sku) {
+        return res.status(400).json({ success: false, message: "A product with this SKU already exists." });
+      }
+      return res.status(400).json({ success: false, message: "A product with this Name already exists." });
     }
 
+    // 4. SubCategory Check
     const subCategoryExists = await SubCategory.findById(subCategoryId);
     if (!subCategoryExists) {
-      return res.status(404).json({ message: "SubCategory not found" });
+      return res.status(404).json({ success: false, message: "SubCategory not found in the registry." });
     }
 
+    // 5. Create the Product
     const product = await Product.create({
       name,
-      stock,
-      price,
+      sku,
       description,
-      subCategoryId,
       image,
-      unit,
+      price,
+      pricePerBox,
+      unit: unit || 'sqft', // Fallback to default if not provided
+      stock,
+      materialType,
       woodType,
+      color,
+      colorFamily,
       finish,
       thicknessMM,
-      color,
+      lengthMM,
+      widthMM,
+      waterResistance: waterResistance || 'Not-resistant',
+      subCategoryId,
       isActive,
     });
 
     res.status(201).json({
-      message: "Product created successfully",
+      success: true,
+      message: "Material specification successfully added to inventory.",
       product,
     });
+
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("ADMIN_PRODUCT_CREATE_ERROR:", err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
-
 /**
  * ADMIN: Update product
  */
 export const updateProduct = async (req, res) => {
   try {
+    const { id } = req.params;
+    const updateData = { ...req.body };
+
+    // 1. Lock down unique fields (Prevent updating Name and SKU)
+    delete updateData.name;
+    delete updateData.sku;
+
+    // 2. Handle the Active/Inactive toggle
+    if (updateData.status !== undefined) {
+      updateData.isActive = updateData.status !== 'inactive';
+      delete updateData.status; // Remove this so it doesn't mess with the DB schema
+    }
+
+    // 3. Update the rest of the fields
     const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
+      id,
+      updateData,
+      { 
+        new: true,           // Return the newly updated product
+        runValidators: true  // Ensure valid data (like correct enums)
+      }
     );
 
     if (!product) {
@@ -167,6 +233,7 @@ export const updateProduct = async (req, res) => {
       product,
     });
   } catch (err) {
+    console.error("Update Product Error:", err.message);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -177,8 +244,11 @@ export const updateProduct = async (req, res) => {
  */
 export const deleteProduct = async (req, res) => {
   try {
+    // We pass { isActive: false } as the second argument to disable it
     const product = await Product.findByIdAndUpdate(
       req.params.id,
+      { isActive: false },
+      { new: true }
     );
 
     if (!product) {
@@ -187,6 +257,7 @@ export const deleteProduct = async (req, res) => {
 
     res.status(200).json({ message: "Product disabled successfully" });
   } catch (err) {
+    console.error("Delete Product Error:", err.message);
     res.status(500).json({ message: "Server error" });
   }
 };
