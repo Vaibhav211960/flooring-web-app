@@ -3,22 +3,26 @@ import { ArrowRight } from "lucide-react";
 
 export function CategoryCard({ cat }) {
   return (
-    <div className="group cursor-pointer flex flex-col h-full bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden hover:shadow-md transition-all duration-300">
+    <div className="group cursor-pointer flex flex-col h-full bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden hover:shadow-md hover:border-stone-300 transition-all duration-300">
+
       {/* Image */}
       <div className="relative overflow-hidden aspect-[4/3]">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent z-10" />
         <img
-          src={cat?.image || "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTdYohtT-PRFqia7Flnt0cp2Db5e8nUDdRnxabNuR1IYzAbnSZTb8bl8wuq_Fz6KnYvowo-I9JgFI8Ppf_pbkrenu5Q_MyOCFp8xdPTbabH8eK4HaLlxBq7"}
+          src={
+            cat?.image ||
+            "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTdYohtT-PRFqia7Flnt0cp2Db5e8nUDdRnxabNuR1IYzAbnSZTb8bl8wuq_Fz6KnYvowo-I9JgFI8Ppf_pbkrenu5Q_MyOCFp8xdPTbabH8eK4HaLlxBq7"
+          }
           alt={cat.name}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           loading="lazy"
         />
         <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-2">
-          <span className="inline-flex items-center rounded-full bg-black/50 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-white">
+          <span className="inline-flex items-center rounded-full bg-black/50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white">
             View Collection
           </span>
           {cat.startingPricePerSqft && (
-            <span className="inline-flex items-center rounded-full bg-amber-100/90 text-amber-900 px-3 py-1 text-[11px] font-medium">
+            <span className="inline-flex items-center rounded-full bg-amber-100/90 text-amber-900 px-3 py-1 text-[10px] font-bold">
               From ₹{cat.startingPricePerSqft}/sqft
             </span>
           )}
@@ -53,7 +57,7 @@ export function CategoryCard({ cat }) {
               </span>
             ))}
             {cat.subcategories.length > 3 && (
-              <span className="text-[10px] text-stone-400 self-center">
+              <span className="text-[10px] text-stone-400 self-center font-medium">
                 +{cat.subcategories.length - 3} more
               </span>
             )}

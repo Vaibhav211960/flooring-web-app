@@ -5,9 +5,10 @@ import AddToCartBtn from "../components/AddToCartBtn.jsx";
 
 const ProductCard = ({ product }) => {
   return (
-    <div className="group cursor-pointer flex flex-col h-full bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden hover:shadow-md transition-all duration-300">
+    <div className="group cursor-pointer flex flex-col h-full bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden hover:shadow-md hover:border-stone-300 transition-all duration-300">
+
+      {/* Image */}
       <Link to={`/products/${product._id}`}>
-        {/* Image */}
         <div className="relative overflow-hidden aspect-[4/3]">
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent z-10" />
           <img
@@ -17,11 +18,11 @@ const ProductCard = ({ product }) => {
             loading="lazy"
           />
           <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-2">
-            <span className="inline-flex items-center rounded-full bg-black/50 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-white">
+            <span className="inline-flex items-center rounded-full bg-black/50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white">
               ₹{product.price} / {product.unit || "sqft"}
             </span>
             <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-medium ${
+              className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-bold ${
                 product.stock > 5
                   ? "bg-emerald-100/90 text-emerald-900"
                   : product.stock > 0
@@ -33,9 +34,11 @@ const ProductCard = ({ product }) => {
             </span>
           </div>
         </div>
+      </Link>
 
-        {/* Content */}
-        <div className="flex flex-col flex-grow gap-3 px-5 py-5">
+      {/* Content */}
+      <div className="flex flex-col flex-grow gap-3 px-5 py-5">
+        <Link to={`/products/${product._id}`}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <h3 className="font-serif text-lg font-semibold text-stone-900 group-hover:text-amber-800 transition-colors line-clamp-1">
@@ -49,11 +52,11 @@ const ProductCard = ({ product }) => {
             </div>
             <ArrowRight className="mt-1 h-4 w-4 text-stone-400 group-hover:text-amber-700 group-hover:translate-x-1 transition-all shrink-0" />
           </div>
-          <div className="mt-auto pt-2">
-            <AddToCartBtn product={product} className="h-10 w-full text-sm" />
-          </div>
+        </Link>
+        <div className="mt-auto pt-1">
+          <AddToCartBtn product={product} />
         </div>
-      </Link>
+      </div>
     </div>
   );
 };

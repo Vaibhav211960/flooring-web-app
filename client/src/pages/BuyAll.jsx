@@ -2,73 +2,69 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Home as HomeIcon, ChevronRight, Truck, ShieldCheck,
-  Package, Loader2, AlertCircle, ShoppingBag, Gift,
+  Package, Loader2, ShoppingBag, Gift,
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { Button } from "../ui/button";
 import { useCart } from "../context/CartContext";
 import { useToast } from "../hooks/useToast";
+import { getDiscountData, getDeliveryCharge } from "../pages/Cart";
 
 export default function BuyAll() {
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const navigate    = useNavigate();
+  const { toast }   = useToast();
   const { cartItems, getCartTotal, isLoading } = useCart();
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const [form, setForm] = useState(() => {
-    const savedAddress = localStorage.getItem("temp_shipping_address");
-    return savedAddress ? JSON.parse(savedAddress) : {
+    const saved = localStorage.getItem("temp_shipping_address");
+    return saved ? JSON.parse(saved) : {
       fullName: "", contact: "", pincode: "", landmark: "", address: "",
     };
   });
-
   const [errors, setErrors] = useState({});
 
+  // Persist address as user types
   useEffect(() => {
     localStorage.setItem("temp_shipping_address", JSON.stringify(form));
   }, [form]);
 
-  const subtotal = getCartTotal();
-
-  const deliveryCharge = useMemo(() => {
-    if (subtotal === 0) return 0;
-    if (subtotal < 500) return 99;
-    if (subtotal <= 1500) return 149;
-    if (subtotal <= 5000) return 299;
-    return 499;
-  }, [subtotal]);
-
-  const discountData = useMemo(() => {
-    if (subtotal >= 10000) return { p: 7, amt: subtotal * 0.07, next: null };
-    if (subtotal >= 5000) return { p: 2, amt: subtotal * 0.02, next: 10000 };
-    return { p: 0, amt: 0, next: 5000 };
-  }, [subtotal]);
-
-  const totalPayable = subtotal - discountData.amt + deliveryCharge;
-
-  const upsellMessage = useMemo(() => {
-    if (subtotal < 5000) return {
-      text: `Add ₹${(5000 - subtotal).toLocaleString()} more to unlock a 2% discount`,
-      icon: <Gift size={13} className="text-amber-600" />,
-      color: "bg-amber-50 border-amber-100 text-amber-900",
-    };
-    if (subtotal < 10000) return {
-      text: `Add ₹${(10000 - subtotal).toLocaleString()} more to unlock a 7% discount`,
-      icon: <Package size={13} className="text-emerald-600" />,
-      color: "bg-emerald-50 border-emerald-100 text-emerald-900",
-    };
-    return {
-      text: "Maximum 7% Volume Discount Applied",
-      icon: <ShieldCheck size={13} className="text-emerald-600" />,
-      color: "bg-emerald-50 border-emerald-200 text-emerald-900",
-    };
-  }, [subtotal]);
-
+  // Redirect if cart is empty
   useEffect(() => {
     if (!isLoading && cartItems.length === 0) navigate("/cart");
   }, [cartItems, isLoading, navigate]);
 
+  // ── Financials (shared logic) ──────────────────────────────────────────────
+  const subtotal    = getCartTotal();
+  const totalQty    = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+  const discountData   = useMemo(() => getDiscountData(subtotal),   [subtotal]);
+  const deliveryCharge = useMemo(() => getDeliveryCharge(totalQty), [totalQty]);
+  const totalPayable   = subtotal - discountData.amt + deliveryCharge;
+
+  const upsellMessage = useMemo(() => {
+    if (subtotal <= 0)    return null;
+    if (subtotal < 5000)  return {
+      text:  `Add ₹${(5000 - subtotal).toLocaleString("en-IN")} more to unlock a 2% discount`,
+      icon:  <Gift size={13} className="text-amber-600 shrink-0" />,
+      color: "bg-amber-50 border-amber-100 text-amber-900",
+      bar:   "bg-amber-400",
+    };
+    if (subtotal < 10000) return {
+      text:  `Add ₹${(10000 - subtotal).toLocaleString("en-IN")} more to unlock a 5% discount`,
+      icon:  <Package size={13} className="text-emerald-600 shrink-0" />,
+      color: "bg-emerald-50 border-emerald-100 text-emerald-900",
+      bar:   "bg-emerald-400",
+    };
+    return {
+      text:  "Maximum 5% volume discount applied!",
+      icon:  <ShieldCheck size={13} className="text-emerald-600 shrink-0" />,
+      color: "bg-emerald-50 border-emerald-200 text-emerald-900",
+      bar:   "bg-emerald-400",
+    };
+  }, [subtotal]);
+
+  // ── Form handlers ──────────────────────────────────────────────────────────
   const handleInput = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
@@ -77,10 +73,10 @@ export default function BuyAll() {
 
   const handlePlaceOrder = async () => {
     const newErrors = {};
-    if (!form.fullName.trim()) newErrors.fullName = "Full name required";
-    if (!/^\d{10}$/.test(form.contact)) newErrors.contact = "Invalid 10-digit contact";
-    if (!/^\d{6}$/.test(form.pincode)) newErrors.pincode = "Invalid pincode";
-    if (form.address.length < 10) newErrors.address = "Address too short";
+    if (!form.fullName.trim())           newErrors.fullName = "Full name required";
+    if (!/^\d{10}$/.test(form.contact))  newErrors.contact  = "Invalid 10-digit contact";
+    if (!/^\d{6}$/.test(form.pincode))   newErrors.pincode  = "Invalid pincode";
+    if (form.address.length < 10)        newErrors.address  = "Address too short";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -129,16 +125,18 @@ export default function BuyAll() {
           <div className="lg:col-span-8 space-y-6">
 
             {/* Upsell Banner */}
-            <div className={`p-4 rounded-xl border flex items-center gap-4 ${upsellMessage.color}`}>
-              {upsellMessage.icon}
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em]">{upsellMessage.text}</p>
-              <div className="h-1 flex-1 bg-stone-200/50 rounded-full overflow-hidden hidden sm:block ml-auto">
-                <div
-                  className="h-full bg-current transition-all duration-700 rounded-full"
-                  style={{ width: `${Math.min((subtotal / 10000) * 100, 100)}%` }}
-                />
+            {upsellMessage && (
+              <div className={`p-4 rounded-xl border flex items-center gap-4 ${upsellMessage.color}`}>
+                {upsellMessage.icon}
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em]">{upsellMessage.text}</p>
+                <div className="h-1 flex-1 bg-stone-200/50 rounded-full overflow-hidden hidden sm:block ml-auto">
+                  <div
+                    className={`h-full ${upsellMessage.bar} transition-all duration-700 rounded-full`}
+                    style={{ width: `${Math.min((subtotal / 10000) * 100, 100)}%` }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Cart Items */}
             <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
@@ -157,8 +155,12 @@ export default function BuyAll() {
                       className="w-14 h-14 object-cover rounded-xl border border-stone-100 bg-stone-50 shrink-0"
                     />
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-sm text-stone-800 truncate">{item.productId?.name || item.name}</h4>
-                      <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">Qty: {item.quantity}</p>
+                      <h4 className="font-bold text-sm text-stone-800 truncate">
+                        {item.productId?.name || item.name}
+                      </h4>
+                      <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
+                        Qty: {item.quantity}
+                      </p>
                     </div>
                     <p className="font-mono font-bold text-sm text-stone-900 shrink-0">
                       ₹{((item.productId?.price || item.price) * item.quantity).toLocaleString()}
@@ -177,12 +179,14 @@ export default function BuyAll() {
                 </p>
               </div>
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-                <InputField label="Full Name" name="fullName" value={form.fullName} onChange={handleInput} error={errors.fullName} />
-                <InputField label="Contact Number" name="contact" value={form.contact} onChange={handleInput} error={errors.contact} placeholder="+91" />
-                <InputField label="Pincode" name="pincode" value={form.pincode} onChange={handleInput} error={errors.pincode} />
-                <InputField label="Landmark" name="landmark" value={form.landmark} onChange={handleInput} placeholder="Optional" />
+                <InputField label="Full Name"       name="fullName" value={form.fullName} onChange={handleInput} error={errors.fullName} />
+                <InputField label="Contact Number"  name="contact"  value={form.contact}  onChange={handleInput} error={errors.contact} placeholder="+91" />
+                <InputField label="Pincode"         name="pincode"  value={form.pincode}  onChange={handleInput} error={errors.pincode} />
+                <InputField label="Landmark"        name="landmark" value={form.landmark} onChange={handleInput} placeholder="Optional" />
                 <div className="md:col-span-2 space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Full Address</label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                    Full Address
+                  </label>
                   <textarea
                     name="address"
                     rows="3"
@@ -193,7 +197,9 @@ export default function BuyAll() {
                     }`}
                     placeholder="Site / delivery address..."
                   />
-                  {errors.address && <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight">! {errors.address}</p>}
+                  {errors.address && (
+                    <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight">! {errors.address}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -214,29 +220,53 @@ export default function BuyAll() {
                 {discountData.p > 0 && (
                   <div className="flex justify-between text-emerald-600 font-semibold">
                     <span>Volume Discount ({discountData.p}%)</span>
-                    <span className="font-mono">− ₹{discountData.amt.toLocaleString()}</span>
+                    <span className="font-mono">− ₹{Math.round(discountData.amt).toLocaleString()}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-stone-600">
-                  <span>Delivery</span>
+                  <span>
+                    Delivery
+                    <span className="ml-1 text-[9px] text-stone-400 font-bold">({totalQty} units)</span>
+                  </span>
                   <span className="font-mono font-bold text-stone-900">₹{deliveryCharge}</span>
                 </div>
               </div>
 
               <div className="border-t border-stone-200 py-5 flex justify-between items-baseline">
                 <span className="font-bold text-stone-900 uppercase tracking-widest text-[10px]">Total Payable</span>
-                <span className="text-2xl font-bold text-amber-800">₹{Math.round(totalPayable).toLocaleString()}</span>
+                <span className="text-2xl font-bold text-amber-800">
+                  ₹{Math.round(totalPayable).toLocaleString()}
+                </span>
               </div>
 
-              <Button
+              <button
                 onClick={handlePlaceOrder}
                 disabled={isPlacingOrder}
                 className="w-full h-12 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold uppercase tracking-widest text-[11px] transition-all active:scale-95 disabled:opacity-60"
               >
-                {isPlacingOrder ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirm & Pay"}
-              </Button>
+                {isPlacingOrder
+                  ? <Loader2 className="animate-spin h-4 w-4 mx-auto" />
+                  : "Confirm & Pay"}
+              </button>
 
-              <div className="mt-5 flex items-center justify-center gap-2 text-[9px] text-stone-400 uppercase tracking-widest font-bold border-t border-stone-100 pt-5">
+              {/* Delivery rate card */}
+              <div className="mt-5 pt-5 border-t border-stone-100 space-y-1.5">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400 mb-2">Delivery Rates</p>
+                {[
+                  { label: "Under 50 units", rate: 299 },
+                  { label: "50 – 99 units",  rate: 699 },
+                  { label: "100+ units",      rate: 899 },
+                ].map((row) => (
+                  <div key={row.label} className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                    <span>{row.label}</span>
+                    <span className={deliveryCharge === row.rate ? "text-amber-700" : ""}>
+                      ₹{row.rate}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex items-center justify-center gap-2 text-[9px] text-stone-400 uppercase tracking-widest font-bold border-t border-stone-100 pt-4">
                 <ShieldCheck size={13} className="text-emerald-500" /> Secured Checkout
               </div>
             </div>

@@ -6,34 +6,33 @@ import {
   ShieldCheck, Zap, Layers, Box, Loader2, Warehouse,
   Palette, Star, Send, CheckCircle2, Lock,
   Pencil, Trash2, X, Check, Droplets, Wrench, Maximize, Ruler,
-  Package, Tag, Flame, Square
+  Package, Tag, Flame, Square, ShoppingCart,
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { Button } from "../ui/button";
 import AddToCartButton from "../components/AddToCartBtn.jsx";
 import { toast } from "react-hot-toast";
 import { jwtDecode } from "jwt-decode";
 
 export default function ProductDetails() {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id }       = useParams();
+  const navigate     = useNavigate();
 
-  const [product, setProduct] = useState(null);
-  const [qty, setQty] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [product,    setProduct]    = useState(null);
+  const [qty,        setQty]        = useState(1);
+  const [isLoading,  setIsLoading]  = useState(true);
+  const [error,      setError]      = useState(null);
 
-  // --- FEEDBACK STATES ---
-  const [reviews, setReviews] = useState([]);
+  // ── Feedback ──────────────────────────────────────────────────────────────
+  const [reviews,    setReviews]    = useState([]);
   const [isEligible, setIsEligible] = useState(false);
   const [reviewText, setReviewText] = useState("");
-  const [rating, setRating] = useState(5);
+  const [rating,     setRating]     = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [editText, setEditText] = useState("");
+  const [editingId,  setEditingId]  = useState(null);
+  const [editText,   setEditText]   = useState("");
   const [editRating, setEditRating] = useState(5);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving,   setIsSaving]   = useState(false);
 
   const getLoggedInUserId = () => {
     try {
@@ -45,14 +44,17 @@ export default function ProductDetails() {
   };
   const loggedInUserId = getLoggedInUserId();
 
+  // ── Fetch ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchProductAndReviews = async () => {
+    const fetchAll = async () => {
       try {
         setIsLoading(true);
         const prodRes = await axios.get(`http://localhost:5000/api/products/${id}`);
         setProduct(prodRes.data.product || prodRes.data);
+
         const reviewRes = await axios.get(`http://localhost:5000/api/feedback/product/${id}`);
         setReviews(reviewRes.data.feedbacks || []);
+
         const token = localStorage.getItem("UserToken");
         if (token) {
           const eligRes = await axios.get(
@@ -64,10 +66,10 @@ export default function ProductDetails() {
       } catch { setError("Product not found."); }
       finally { setIsLoading(false); }
     };
-    if (id) fetchProductAndReviews();
+    if (id) fetchAll();
   }, [id]);
 
-  // --- FEEDBACK LOGIC ---
+  // ── Feedback Handlers ─────────────────────────────────────────────────────
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
     if (!reviewText.trim()) return;
@@ -80,15 +82,16 @@ export default function ProductDetails() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setReviews((prev) => [res.data.feedback, ...prev]);
-      setReviewText(""); setIsEligible(false);
+      setReviewText("");
+      setIsEligible(false);
       toast.success("Review submitted!");
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not submit review.");
     } finally { setIsSubmitting(false); }
   };
 
-  const handleEditStart = (rev) => { setEditingId(rev._id); setEditText(rev.comment); setEditRating(rev.rating); };
-  const handleEditCancel = () => { setEditingId(null); setEditText(""); setEditRating(5); };
+  const handleEditStart  = (rev) => { setEditingId(rev._id); setEditText(rev.comment); setEditRating(rev.rating); };
+  const handleEditCancel = ()    => { setEditingId(null); setEditText(""); setEditRating(5); };
 
   const handleEditSave = async (reviewId) => {
     if (!editText.trim()) return;
@@ -113,23 +116,37 @@ export default function ProductDetails() {
       <div className="flex flex-col gap-3">
         <p className="text-sm font-medium text-stone-800">Delete your review?</p>
         <div className="flex gap-2">
-          <button onClick={async () => {
-            toast.dismiss(t.id);
-            try {
-              const token = localStorage.getItem("UserToken");
-              await axios.delete(`http://localhost:5000/api/feedback/${reviewId}`, { headers: { Authorization: `Bearer ${token}` } });
-              setReviews((prev) => prev.filter((r) => r._id !== reviewId));
-              setIsEligible(true);
-              toast.success("Review deleted.");
-            } catch (err) { toast.error(err.response?.data?.message || "Could not delete review."); }
-          }} className="flex-1 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all">Delete</button>
-          <button onClick={() => toast.dismiss(t.id)} className="flex-1 px-3 py-1.5 bg-stone-100 text-stone-700 text-xs font-bold rounded-lg hover:bg-stone-200 transition-all">Cancel</button>
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              try {
+                const token = localStorage.getItem("UserToken");
+                await axios.delete(`http://localhost:5000/api/feedback/${reviewId}`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                setReviews((prev) => prev.filter((r) => r._id !== reviewId));
+                setIsEligible(true);
+                toast.success("Review deleted.");
+              } catch (err) {
+                toast.error(err.response?.data?.message || "Could not delete review.");
+              }
+            }}
+            className="flex-1 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="flex-1 px-3 py-1.5 bg-stone-100 text-stone-700 text-xs font-bold rounded-lg hover:bg-stone-200 transition-all"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     ), { duration: 8000 });
   };
 
-  // --- BUY NOW LOGIC ---
+  // ── Buy Now ───────────────────────────────────────────────────────────────
   const handleBuyNow = () => {
     if (!product) return;
     if (!localStorage.getItem("UserToken")) {
@@ -137,52 +154,39 @@ export default function ProductDetails() {
       navigate("/login");
       return;
     }
-    const singleBuyData = {
+    localStorage.setItem("single_buy_product", JSON.stringify({
       productId: product._id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      unit: product.unit,
-      quantity: qty,
-      total: product.price * qty
-    };
-    localStorage.setItem("single_buy_product", JSON.stringify(singleBuyData));
-    navigate(`/buy-now/${product._id}`, { state: { quantity: qty, flow: 'single' } });
+      name:      product.name,
+      price:     product.price,
+      image:     product.image,
+      unit:      product.unit,
+      quantity:  qty,
+      total:     product.price * qty,
+    }));
+    navigate(`/buy-now/${product._id}`, { state: { quantity: qty, flow: "single" } });
   };
 
-  // --- COVERAGE CALCULATION ---
-  // Schema stores lengthMM and widthMM (in millimeters)
-  // Convert to sq.ft: 1 mm = 0.00328084 ft
+  // ── Coverage ──────────────────────────────────────────────────────────────
   const mmToFt = (mm) => (mm || 0) * 0.00328084;
 
   const calculateTotalCoverage = () => {
     if (!product) return "0.00";
-    // If unit is "box", use coveragePerBox
-    if (product.unit === "box") {
-      return ((product.coveragePerBox || 0) * qty).toFixed(2);
-    }
-    // Otherwise calculate from dimensions
+    if (product.unit === "box") return ((product.coveragePerBox || 0) * qty).toFixed(2);
     const lFt = mmToFt(product.lengthMM);
     const wFt = mmToFt(product.widthMM);
     if (lFt === 0 || wFt === 0) return "N/A";
     return (qty * lFt * wFt).toFixed(2);
   };
 
-  const lengthDisplay = product?.lengthMM
-    ? `${product.lengthMM} mm (${mmToFt(product.lengthMM).toFixed(2)} ft)`
-    : "N/A";
-
-  const widthDisplay = product?.widthMM
-    ? `${product.widthMM} mm (${mmToFt(product.widthMM).toFixed(2)} ft)`
-    : "N/A";
-
   const avgRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : null;
 
+  // ── Loading / Error ───────────────────────────────────────────────────────
   if (isLoading) return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-4">
       <Loader2 className="h-8 w-8 text-amber-600 animate-spin" />
+      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Loading Product...</p>
     </div>
   );
 
@@ -191,7 +195,9 @@ export default function ProductDetails() {
       <Navbar />
       <div className="flex-1 flex flex-col items-center justify-center gap-4">
         <p className="font-serif text-stone-700 text-lg">{error || "Product not found."}</p>
-        <Link to="/products" className="text-amber-700 text-xs font-bold uppercase tracking-widest hover:underline">Back to Products</Link>
+        <Link to="/products" className="text-amber-700 text-xs font-bold uppercase tracking-widest hover:underline">
+          Back to Products
+        </Link>
       </div>
     </div>
   );
@@ -200,27 +206,30 @@ export default function ProductDetails() {
     <div className="min-h-screen bg-stone-50 flex flex-col text-stone-900">
       <Navbar />
 
-      {/* Breadcrumb */}
+      {/* ── Sticky Breadcrumb ── */}
       <nav className="border-b border-stone-200 bg-white/80 backdrop-blur-sm sticky top-[64px] z-20">
         <div className="container max-w-7xl mx-auto px-6 py-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 font-bold">
-          <Link to="/" className="hover:text-amber-700 flex items-center gap-1 transition-colors"><Home size={11} /> Home</Link>
+          <Link to="/" className="hover:text-amber-700 flex items-center gap-1 transition-colors">
+            <Home size={11} /> Home
+          </Link>
           <ChevronRight size={10} />
           <Link to="/products" className="hover:text-amber-700 transition-colors">Collections</Link>
           <ChevronRight size={10} />
-          <span className="text-stone-700 truncate max-w-[150px]">{product.name}</span>
+          <span className="text-stone-600 truncate max-w-[200px]">{product.name}</span>
         </div>
       </nav>
 
       <main className="flex-grow container max-w-7xl mx-auto px-6 py-10 md:py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
 
-          {/* LEFT COLUMN: Media & Reviews */}
-          <div className="lg:col-span-6 xl:col-span-7 space-y-12">
+          {/* ══ LEFT COLUMN ══ */}
+          <div className="lg:col-span-6 xl:col-span-7 space-y-10">
+
             {/* Product Image */}
             <div className="aspect-square bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm relative">
               <img src={product.image} className="w-full h-full object-cover" alt={product.name} />
 
-              {/* Badges */}
+              {/* Badges — top left */}
               <div className="absolute top-4 left-4 flex flex-col gap-2">
                 {product.waterResistance === "Waterproof" && (
                   <span className="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 shadow-md">
@@ -239,7 +248,7 @@ export default function ProductDetails() {
                 )}
               </div>
 
-              {/* Avg rating badge */}
+              {/* Rating badge — top right */}
               {avgRating && (
                 <div className="absolute top-4 right-4 bg-stone-900/80 backdrop-blur-sm text-amber-400 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-lg">
                   <Star size={12} fill="#fbbf24" />
@@ -249,44 +258,54 @@ export default function ProductDetails() {
               )}
             </div>
 
-            {/* Description */}
-            <section>
-              <h3 className="font-serif text-2xl text-stone-800 leading-relaxed italic border-b border-stone-200 pb-6">
+            {/* Description Quote */}
+            <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 mb-3">About This Product</p>
+              <p className="font-serif text-lg text-stone-700 leading-relaxed italic">
                 "{product.description}"
-              </h3>
-            </section>
+              </p>
+            </div>
 
-            {/* Reviews Section */}
-            <section className="space-y-6 pt-2">
-              <div className="border-b border-stone-200 pb-4 flex items-center justify-between">
+            {/* ── Reviews Section ── */}
+            <section className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-stone-200">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 mb-1">Customer Reviews</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700 mb-1">
+                    Customer Reviews
+                  </p>
                   <h3 className="font-serif text-2xl text-stone-800">What buyers say</h3>
                 </div>
                 <div className="text-right">
                   {avgRating ? (
                     <>
-                      <p className="text-2xl font-bold text-stone-900">{avgRating} <span className="text-base text-stone-400">/ 5</span></p>
-                      <p className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">{reviews.length} {reviews.length === 1 ? "Review" : "Reviews"}</p>
+                      <p className="text-2xl font-bold text-stone-900">
+                        {avgRating} <span className="text-base text-stone-400">/ 5</span>
+                      </p>
+                      <p className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">
+                        {reviews.length} {reviews.length === 1 ? "Review" : "Reviews"}
+                      </p>
                     </>
                   ) : (
-                    <>
-                      <p className="text-2xl font-bold text-stone-900">{reviews.length}</p>
-                      <p className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">{reviews.length === 1 ? "Review" : "Reviews"}</p>
-                    </>
+                    <p className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">
+                      No reviews yet
+                    </p>
                   )}
                 </div>
               </div>
 
+              {/* Write Review */}
               {isEligible ? (
                 <div className="bg-white border border-amber-100 p-6 rounded-xl shadow-sm space-y-4">
                   <div className="flex items-center gap-2 text-emerald-600">
                     <CheckCircle2 size={15} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">You can review this product</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest">
+                      You can review this product
+                    </span>
                   </div>
                   <div className="flex gap-1.5">
-                    {[1,2,3,4,5].map((star) => (
-                      <button type="button" key={star} onClick={() => setRating(star)}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button type="button" key={star} onClick={() => setRating(star)} className="transition-transform hover:scale-110">
                         <Star size={20} fill={star <= rating ? "#b45309" : "none"} className={star <= rating ? "text-amber-700" : "text-stone-300"} />
                       </button>
                     ))}
@@ -296,10 +315,13 @@ export default function ProductDetails() {
                       value={reviewText}
                       onChange={(e) => setReviewText(e.target.value)}
                       placeholder="Share your thoughts on quality and finish..."
-                      className="w-full bg-stone-50 border border-stone-200 p-4 rounded-xl text-sm focus:border-amber-500 outline-none h-28 resize-none transition-all"
+                      className="w-full bg-stone-50 border border-stone-200 p-4 pr-14 rounded-xl text-sm focus:border-amber-500 outline-none h-28 resize-none transition-all"
                     />
-                    <button type="submit" disabled={isSubmitting}
-                      className="absolute bottom-3 right-3 bg-stone-900 text-amber-500 p-2.5 rounded-lg hover:bg-stone-800 transition-all disabled:opacity-50">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="absolute bottom-3 right-3 bg-stone-900 text-amber-500 p-2.5 rounded-lg hover:bg-stone-800 transition-all disabled:opacity-50"
+                    >
                       {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                     </button>
                   </form>
@@ -307,36 +329,54 @@ export default function ProductDetails() {
               ) : (
                 <div className="flex items-center gap-3 p-4 bg-stone-50 rounded-xl border border-stone-200">
                   <Lock size={13} className="text-stone-400 shrink-0" />
-                  <p className="text-xs text-stone-500 italic">Only verified buyers who have received this product can post reviews.</p>
+                  <p className="text-xs text-stone-500 italic">
+                    Only verified buyers who have received this product can post reviews.
+                  </p>
                 </div>
               )}
 
+              {/* Review List */}
               <div className="space-y-4">
                 {reviews.length > 0 ? reviews.map((rev) => {
-                  const isOwner = loggedInUserId && rev.userId?._id === loggedInUserId;
+                  const isOwner   = loggedInUserId && rev.userId?._id === loggedInUserId;
                   const isEditing = editingId === rev._id;
                   return (
-                    <div key={rev._id} className={`bg-white p-6 rounded-xl border shadow-sm transition-all ${isEditing ? "border-amber-300" : "border-stone-100 hover:border-stone-200"}`}>
+                    <div
+                      key={rev._id}
+                      className={`bg-white p-6 rounded-xl border shadow-sm transition-all ${
+                        isEditing ? "border-amber-300" : "border-stone-100 hover:border-stone-200"
+                      }`}
+                    >
                       {isEditing ? (
                         <div className="space-y-4">
                           <div className="flex items-center gap-2 text-amber-700">
-                            <Pencil size={12} /><span className="text-[10px] font-bold uppercase tracking-widest">Editing your review</span>
+                            <Pencil size={12} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Editing your review</span>
                           </div>
                           <div className="flex gap-1.5">
-                            {[1,2,3,4,5].map((star) => (
-                              <button type="button" key={star} onClick={() => setEditRating(star)}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button type="button" key={star} onClick={() => setEditRating(star)} className="transition-transform hover:scale-110">
                                 <Star size={18} fill={star <= editRating ? "#b45309" : "none"} className={star <= editRating ? "text-amber-700" : "text-stone-300"} />
                               </button>
                             ))}
                           </div>
-                          <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
-                            className="w-full bg-stone-50 border border-amber-200 p-4 rounded-xl text-sm focus:border-amber-500 outline-none h-24 resize-none transition-all" />
+                          <textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="w-full bg-stone-50 border border-amber-200 p-4 rounded-xl text-sm focus:border-amber-500 outline-none h-24 resize-none transition-all"
+                          />
                           <div className="flex gap-2 justify-end">
-                            <button onClick={handleEditCancel} className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-stone-500 bg-stone-100 rounded-lg hover:bg-stone-200 transition-all">
+                            <button
+                              onClick={handleEditCancel}
+                              className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-stone-500 bg-stone-100 rounded-lg hover:bg-stone-200 transition-all"
+                            >
                               <X size={12} /> Cancel
                             </button>
-                            <button onClick={() => handleEditSave(rev._id)} disabled={isSaving}
-                              className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition-all disabled:opacity-50">
+                            <button
+                              onClick={() => handleEditSave(rev._id)}
+                              disabled={isSaving}
+                              className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition-all disabled:opacity-50"
+                            >
                               {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Save
                             </button>
                           </div>
@@ -366,28 +406,36 @@ export default function ProductDetails() {
                               </span>
                               {isOwner && (
                                 <div className="flex items-center gap-1">
-                                  <button onClick={() => handleEditStart(rev)} className="p-1.5 text-stone-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all"><Pencil size={12} /></button>
-                                  <button onClick={() => handleDelete(rev._id)} className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={12} /></button>
+                                  <button onClick={() => handleEditStart(rev)} className="p-1.5 text-stone-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all">
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button onClick={() => handleDelete(rev._id)} className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                                    <Trash2 size={12} />
+                                  </button>
                                 </div>
                               )}
                             </div>
                           </div>
-                          <p className="text-sm text-stone-600 leading-relaxed italic pl-1">"{rev.comment || rev.feedback}"</p>
+                          <p className="text-sm text-stone-600 leading-relaxed italic pl-1">
+                            "{rev.comment || rev.feedback}"
+                          </p>
                         </>
                       )}
                     </div>
                   );
                 }) : (
-                  <div className="text-center py-10 text-stone-400 italic text-xs tracking-widest">No reviews yet.</div>
+                  <div className="text-center py-10 border-2 border-dashed border-stone-200 rounded-2xl">
+                    <p className="text-stone-400 italic text-xs tracking-widest">No reviews yet. Be the first to share your experience.</p>
+                  </div>
                 )}
               </div>
             </section>
           </div>
 
-          {/* RIGHT COLUMN: Commerce & Specs */}
-          <div className="lg:col-span-6 xl:col-span-5 flex flex-col gap-8">
+          {/* ══ RIGHT COLUMN ══ */}
+          <div className="lg:col-span-6 xl:col-span-5 flex flex-col gap-6">
 
-            {/* Header Block */}
+            {/* ── Product Identity ── */}
             <div className="space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-[10px] font-bold text-amber-700 uppercase tracking-[0.4em]">
@@ -398,69 +446,68 @@ export default function ProductDetails() {
                 </span>
               </div>
 
-              <h1 className="text-4xl md:text-5xl font-serif font-semibold text-stone-900 leading-tight">{product.name}</h1>
+              <h1 className="text-4xl md:text-5xl font-serif font-semibold text-stone-900 leading-tight">
+                {product.name}
+              </h1>
 
-              <div className="flex items-baseline gap-3 flex-wrap">
+              {/* Price block */}
+              <div className="flex items-baseline gap-3 flex-wrap pt-1">
                 <div>
                   <span className="text-3xl font-medium text-stone-900">₹{product.price.toLocaleString()}</span>
-                  <span className="text-stone-500 text-sm ml-1">/ per {product.unit}</span>
+                  <span className="text-stone-400 text-sm ml-1.5">/ per {product.unit}</span>
                 </div>
                 {product.pricePerBox && product.unit !== "box" && (
-                  <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-1">
-                    <span className="text-xs text-amber-800 font-semibold">₹{product.pricePerBox.toLocaleString()} / box</span>
-                  </div>
+                  <span className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-1 text-xs text-amber-800 font-semibold">
+                    ₹{product.pricePerBox.toLocaleString()} / box
+                  </span>
                 )}
               </div>
 
-              {/* Stock indicator */}
-              <div className="flex items-center gap-2">
+              {/* Stock pill */}
+              <div className="flex items-center gap-2 pt-1">
                 <div className={`h-2 w-2 rounded-full ${product.stock > 20 ? "bg-emerald-500" : product.stock > 0 ? "bg-amber-500" : "bg-red-500"}`} />
                 <span className={`text-xs font-semibold ${product.stock > 20 ? "text-emerald-700" : product.stock > 0 ? "text-amber-700" : "text-red-700"}`}>
-                  {product.stock > 20 ? `In Stock (${product.stock} units)` : product.stock > 0 ? `Low Stock — only ${product.stock} left` : "Out of Stock"}
+                  {product.stock > 20
+                    ? `In Stock — ${product.stock} units available`
+                    : product.stock > 0
+                    ? `Low Stock — only ${product.stock} left`
+                    : "Out of Stock"}
                 </span>
               </div>
             </div>
 
-            {/* Full Specs Matrix */}
+            {/* ── Full Specs Matrix ── */}
             <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="px-5 py-3 bg-stone-50 border-b border-stone-200 flex items-center gap-2">
                 <Wrench size={14} className="text-amber-700" />
-                <span className="text-[10px] uppercase font-bold tracking-widest text-stone-600">Full Specifications</span>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-amber-700">Full Specifications</span>
               </div>
 
               {/* Row 1: Dimensions */}
               <div className="grid grid-cols-3 border-b border-stone-100">
-                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Ruler size={10}/> Length</span>
+                <SpecCell label="Length" icon={<Ruler size={10} />}>
                   <span className="text-xs font-semibold text-stone-800">{product.lengthMM ? `${product.lengthMM} mm` : "N/A"}</span>
                   {product.lengthMM && <span className="text-[10px] text-stone-400">{mmToFt(product.lengthMM).toFixed(2)} ft</span>}
-                </div>
-                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Ruler size={10}/> Width</span>
+                </SpecCell>
+                <SpecCell label="Width" icon={<Ruler size={10} />} bordered>
                   <span className="text-xs font-semibold text-stone-800">{product.widthMM ? `${product.widthMM} mm` : "N/A"}</span>
                   {product.widthMM && <span className="text-[10px] text-stone-400">{mmToFt(product.widthMM).toFixed(2)} ft</span>}
-                </div>
-                <div className="p-4 flex flex-col gap-1">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Layers size={10}/> Thickness</span>
+                </SpecCell>
+                <SpecCell label="Thickness" icon={<Layers size={10} />} bordered>
                   <span className="text-xs font-semibold text-stone-800">{product.thicknessMM ? `${product.thicknessMM} mm` : "N/A"}</span>
-                </div>
+                </SpecCell>
               </div>
 
               {/* Row 2: Appearance */}
               <div className="grid grid-cols-3 border-b border-stone-100">
-                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Box size={10}/> Finish</span>
+                <SpecCell label="Finish" icon={<Box size={10} />}>
                   <span className="text-xs font-semibold text-stone-800">{product.finish || "Standard"}</span>
-                </div>
-                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Palette size={10}/> Color</span>
+                </SpecCell>
+                <SpecCell label="Color" icon={<Palette size={10} />} bordered>
                   <span className="text-xs font-semibold text-stone-800">{product.color || "Natural"}</span>
-                  {product.colorFamily && (
-                    <span className="text-[10px] text-stone-400">{product.colorFamily} family</span>
-                  )}
-                </div>
-                <div className="p-4 flex flex-col gap-1">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Droplets size={10}/> Water Rating</span>
+                  {product.colorFamily && <span className="text-[10px] text-stone-400">{product.colorFamily} family</span>}
+                </SpecCell>
+                <SpecCell label="Water Rating" icon={<Droplets size={10} />} bordered>
                   <span className={`text-xs font-semibold ${
                     product.waterResistance === "Waterproof" ? "text-emerald-700"
                     : product.waterResistance === "Water-resistant" ? "text-blue-700"
@@ -468,55 +515,48 @@ export default function ProductDetails() {
                   }`}>
                     {product.waterResistance || "Not Rated"}
                   </span>
-                </div>
+                </SpecCell>
               </div>
 
-              {/* Row 3: Material & Coverage */}
+              {/* Row 3: Material */}
               <div className="grid grid-cols-3 border-b border-stone-100">
-                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Square size={10}/> Material</span>
+                <SpecCell label="Material" icon={<Square size={10} />}>
                   <span className="text-xs font-semibold text-stone-800">{product.materialType}</span>
-                </div>
-                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Package size={10}/> Wood Type</span>
+                </SpecCell>
+                <SpecCell label="Wood Type" icon={<Package size={10} />} bordered>
                   <span className="text-xs font-semibold text-stone-800">{product.woodType || "—"}</span>
-                </div>
-                <div className="p-4 flex flex-col gap-1">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Maximize size={10}/> Coverage/Box</span>
+                </SpecCell>
+                <SpecCell label="Coverage/Box" icon={<Maximize size={10} />} bordered>
                   <span className="text-xs font-semibold text-stone-800">
                     {product.coveragePerBox ? `${product.coveragePerBox} sq.ft` : "N/A"}
                   </span>
-                </div>
+                </SpecCell>
               </div>
 
-              {/* Row 4: Pricing & Unit */}
+              {/* Row 4: Pricing */}
               <div className="grid grid-cols-3">
-                <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Tag size={10}/> Unit</span>
+                <SpecCell label="Unit" icon={<Tag size={10} />}>
                   <span className="text-xs font-semibold text-stone-800 uppercase">{product.unit}</span>
-                </div>
-                {product.pricePerBox && (
-                  <div className="p-4 flex flex-col gap-1 border-r border-stone-100">
-                    <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Tag size={10}/> Price/Box</span>
+                </SpecCell>
+                {product.pricePerBox ? (
+                  <SpecCell label="Price/Box" icon={<Tag size={10} />} bordered>
                     <span className="text-xs font-semibold text-stone-800">₹{product.pricePerBox.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="p-4 flex flex-col gap-1">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1"><Warehouse size={10}/> Stock</span>
+                  </SpecCell>
+                ) : <div />}
+                <SpecCell label="Stock" icon={<Warehouse size={10} />} bordered>
                   <span className={`text-xs font-semibold ${product.stock > 20 ? "text-emerald-600" : product.stock > 0 ? "text-amber-600" : "text-red-600"}`}>
-                    {product.stock} {product.unit}
-                    {product.stock === 0 ? "s" : "s"} left
+                    {product.stock} {product.unit}s left
                   </span>
-                </div>
+                </SpecCell>
               </div>
             </div>
 
-            {/* Installation & Heating badges */}
+            {/* ── Install / Heat Badges ── */}
             {(product.installationMethod || product.isRadiantHeatCompatible) && (
               <div className="flex gap-3">
                 {product.installationMethod && (
                   <div className="flex-1 bg-stone-100/70 border border-stone-200 rounded-xl p-3 flex items-center gap-3">
-                    <Wrench size={16} className="text-stone-500 shrink-0"/>
+                    <Wrench size={16} className="text-stone-500 shrink-0" />
                     <div>
                       <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400">Install Method</p>
                       <p className="text-xs font-bold text-stone-800">{product.installationMethod}</p>
@@ -525,7 +565,7 @@ export default function ProductDetails() {
                 )}
                 {product.isRadiantHeatCompatible && (
                   <div className="flex-1 bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-3">
-                    <Flame size={16} className="text-amber-600 shrink-0"/>
+                    <Flame size={16} className="text-amber-600 shrink-0" />
                     <div>
                       <p className="text-[9px] font-bold uppercase tracking-widest text-amber-700">Radiant Heat</p>
                       <p className="text-xs font-bold text-amber-900">Compatible</p>
@@ -535,96 +575,122 @@ export default function ProductDetails() {
               </div>
             )}
 
-            {/* ACTION AREA */}
-            <div className="space-y-5 pt-5 border-t border-stone-200">
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-stone-500 block">Order Quantity</span>
-                  <span className="text-[10px] text-stone-400">in {product.unit}s</span>
-                </div>
-                <div className="flex items-center bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
-                  <button
-                    onClick={() => setQty(Math.max(1, qty - 1))}
-                    className="px-4 py-2.5 hover:bg-stone-50 text-stone-600 font-bold transition-colors"
-                  >−</button>
-                  <span className="px-5 py-2.5 font-bold text-stone-900 border-x border-stone-100 min-w-[3rem] text-center">{qty}</span>
-                  <button
-                    onClick={() => setQty(qty + 1)}
-                    disabled={qty >= product.stock}
-                    className="px-4 py-2.5 hover:bg-stone-50 text-stone-600 font-bold transition-colors disabled:opacity-30"
-                  >+</button>
-                </div>
+            {/* ── Action Area ── */}
+            <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-6 py-5 border-b border-stone-100">
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700">Configure Order</p>
               </div>
 
-              {/* Order Summary */}
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-stone-500">Subtotal ({qty} {product.unit}s)</span>
-                  <span className="text-sm font-bold text-stone-900">₹{(product.price * qty).toLocaleString()}</span>
-                </div>
-                {product.pricePerBox && product.unit !== "box" && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-stone-500">Box equivalent</span>
-                    <span className="text-xs text-stone-600">~{(qty / (product.coveragePerBox || 1)).toFixed(1)} boxes</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Coverage Calculator */}
-              <div className="flex items-center justify-between bg-stone-900 text-amber-500 p-4 rounded-xl shadow-inner">
-                <div className="flex items-center gap-3">
-                  <Maximize size={18} className="opacity-80" />
+              <div className="p-6 space-y-5">
+                {/* Qty selector */}
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Estimated Coverage</p>
-                    <p className="text-xs font-medium text-stone-400 italic mt-0.5">
-                      {product.unit === "box" ? "Coverage per box × qty" : "L × W × qty"}
-                    </p>
+                    <span className="text-xs font-bold uppercase tracking-widest text-stone-600 block">Order Quantity</span>
+                    <span className="text-[10px] text-stone-400">in {product.unit}s</span>
+                  </div>
+                  <div className="flex items-center bg-stone-50 border border-stone-200 rounded-xl overflow-hidden shadow-sm">
+                    <button
+                      onClick={() => setQty(Math.max(1, qty - 1))}
+                      className="px-4 py-2.5 hover:bg-white text-stone-600 font-bold transition-colors"
+                    >−</button>
+                    <span className="px-5 py-2.5 font-bold text-stone-900 border-x border-stone-200 min-w-[3rem] text-center">{qty}</span>
+                    <button
+                      onClick={() => setQty(qty + 1)}
+                      disabled={qty >= product.stock}
+                      className="px-4 py-2.5 hover:bg-white text-stone-600 font-bold transition-colors disabled:opacity-30"
+                    >+</button>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-2xl font-mono font-bold text-white">{calculateTotalCoverage()}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest ml-1 text-stone-400">sq.ft</span>
-                </div>
-              </div>
 
-              <div className="flex flex-col gap-3 pt-2">
-                <Button
-                  onClick={handleBuyNow}
-                  disabled={product.stock === 0 || !product.isActive}
-                  className="w-full h-14 bg-amber-600 text-white hover:bg-amber-500 text-sm font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-3 border-none shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <CreditCard size={17} />
-                  {!product.isActive
-                    ? "Product Unavailable"
-                    : product.stock === 0
-                    ? "Out of Stock"
-                    : localStorage.getItem("UserToken")
-                    ? "Proceed to Checkout"
-                    : "Sign In to Purchase"}
-                </Button>
-                <AddToCartButton
-                  product={product}
-                  qty={qty}
-                  disabled={product.stock === 0 || !product.isActive}
-                  className="h-14 text-sm rounded-xl bg-white border border-stone-200 text-stone-900 hover:bg-stone-50"
-                />
-              </div>
-
-              <div className="flex items-center justify-center gap-6 pt-4 border-t border-stone-100">
-                <div className="flex items-center gap-1.5 text-[9px] text-stone-400 uppercase font-bold tracking-widest">
-                  <ShieldCheck size={14} className="text-emerald-500" /> Secure Escrow
+                {/* Order mini-summary */}
+                <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-stone-500">Subtotal ({qty} {product.unit}s)</span>
+                    <span className="text-sm font-bold text-stone-900">₹{(product.price * qty).toLocaleString()}</span>
+                  </div>
+                  {product.pricePerBox && product.unit !== "box" && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-stone-500">Box equivalent</span>
+                      <span className="text-xs text-stone-600">
+                        ~{(qty / (product.coveragePerBox || 1)).toFixed(1)} boxes
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5 text-[9px] text-stone-400 uppercase font-bold tracking-widest">
-                  <Zap size={14} className="text-amber-500" /> Fast Logistics
+
+                {/* Coverage bar */}
+                <div className="flex items-center justify-between bg-stone-900 p-4 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <Maximize size={18} className="text-stone-400 shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Est. Coverage</p>
+                      <p className="text-[10px] text-stone-500 italic mt-0.5">
+                        {product.unit === "box" ? "Coverage per box × qty" : "L × W × qty"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-mono font-bold text-amber-400">{calculateTotalCoverage()}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest ml-1 text-stone-500">sq.ft</span>
+                  </div>
+                </div>
+
+                {/* CTA Buttons */}
+                <div className="flex flex-col gap-3 pt-1">
+                  {/* Primary — Buy Now */}
+                  <button
+                    onClick={handleBuyNow}
+                    disabled={product.stock === 0 || !product.isActive}
+                    className="w-full h-12 bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-2.5 transition-all active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <CreditCard size={15} />
+                    {!product.isActive
+                      ? "Product Unavailable"
+                      : product.stock === 0
+                      ? "Out of Stock"
+                      : localStorage.getItem("UserToken")
+                      ? "Proceed to Checkout"
+                      : "Sign In to Purchase"}
+                  </button>
+
+                  {/* Secondary — Add to Cart */}
+                  <AddToCartButton
+                    product={product}
+                    qty={qty}
+                    disabled={product.stock === 0 || !product.isActive}
+                    className="h-12 text-[11px] rounded-xl border border-stone-200 bg-white text-stone-900 hover:bg-stone-50 font-bold uppercase tracking-widest transition-all active:scale-95"
+                  />
+                </div>
+
+                {/* Trust badges */}
+                <div className="flex items-center justify-center gap-6 pt-2 border-t border-stone-100">
+                  <div className="flex items-center gap-1.5 text-[9px] text-stone-400 uppercase font-bold tracking-widest">
+                    <ShieldCheck size={13} className="text-emerald-500" /> Secure Escrow
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[9px] text-stone-400 uppercase font-bold tracking-widest">
+                    <Zap size={13} className="text-amber-500" /> Fast Logistics
+                  </div>
                 </div>
               </div>
             </div>
+
           </div>
         </div>
       </main>
 
       <Footer />
+    </div>
+  );
+}
+
+// ── Spec Cell helper ───────────────────────────────────────────────────────
+function SpecCell({ label, icon, bordered = false, children }) {
+  return (
+    <div className={`p-4 flex flex-col gap-1 ${bordered ? "" : "border-r border-stone-100"}`}>
+      <span className="text-[9px] uppercase tracking-widest font-bold text-stone-400 flex items-center gap-1">
+        {icon} {label}
+      </span>
+      {children}
     </div>
   );
 }

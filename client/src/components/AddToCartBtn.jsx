@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Button } from "../ui/button";
 import { useCart } from "../context/CartContext";
 import { toast } from "react-hot-toast";
 import { ShoppingCart, Check, Loader2 } from "lucide-react";
@@ -31,33 +30,33 @@ const AddToCartBtn = ({ product, variant = "default", className = "", qty }) => 
   const itemInCart = isInCart(product._id);
   const quantityInCart = getItemQuantity(product._id);
 
+  /* ── Outline Variant ── */
   if (variant === "outline") {
     return (
-      <Button
+      <button
         onClick={handleAddToCart}
         disabled={localLoading}
-        variant="outline"
-        className={`w-full h-12 uppercase text-[10px] tracking-widest border-stone-300 text-stone-700 hover:bg-stone-50 hover:border-stone-900 rounded-xl transition-all ${className}`}
+        className={`w-full h-12 flex items-center justify-center gap-2 border border-stone-200 hover:border-stone-900 hover:bg-stone-50 text-stone-700 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all disabled:opacity-50 ${className}`}
       >
         {localLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <div className="flex items-center gap-2">
+          <>
             <ShoppingCart className="h-3.5 w-3.5" />
-            <span>{itemInCart ? `In Cart (${quantityInCart})` : "Add to Cart"}</span>
-          </div>
+            {itemInCart ? `In Cart (${quantityInCart})` : "Add to Cart"}
+          </>
         )}
-      </Button>
+      </button>
     );
   }
 
+  /* ── Icon Variant ── */
   if (variant === "icon") {
     return (
-      <Button
+      <button
         onClick={handleAddToCart}
         disabled={localLoading}
-        size="icon"
-        className="h-11 w-11 rounded-xl bg-stone-900 text-white hover:bg-amber-700 transition-colors"
+        className="h-11 w-11 flex items-center justify-center rounded-xl bg-stone-900 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
       >
         {localLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -66,31 +65,31 @@ const AddToCartBtn = ({ product, variant = "default", className = "", qty }) => 
         ) : (
           <ShoppingCart className="h-4 w-4" />
         )}
-      </Button>
+      </button>
     );
   }
 
-  // Default
+  /* ── Default Variant ── */
   return (
-    <Button
+    <button
       onClick={handleAddToCart}
       disabled={localLoading}
-      className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest bg-stone-900 text-white border-none hover:bg-stone-800 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+      className={`w-full flex items-center justify-center gap-2 h-10 px-4 rounded-xl font-bold uppercase tracking-widest text-[11px] bg-stone-900 text-white hover:bg-stone-800 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       {localLoading ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : itemInCart ? (
         <>
           <Check className="h-3.5 w-3.5 text-emerald-400" />
-          <span>Added ({quantityInCart})</span>
+          Added ({quantityInCart})
         </>
       ) : (
         <>
           <ShoppingCart className="h-3.5 w-3.5" />
-          <span>Add to Cart</span>
+          Add to Cart
         </>
       )}
-    </Button>
+    </button>
   );
 };
 

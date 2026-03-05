@@ -4,24 +4,24 @@ import axios from "axios";
 import { ChevronRight, Truck, ShieldCheck, Package, Loader2 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { Button } from "../ui/button";
 import { useToast } from "../hooks/useToast";
+import { getDiscountData, getDeliveryCharge } from "../pages/Cart";
 
 export default function BuyNow() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const location = useLocation();
+  const { id }      = useParams();
+  const navigate    = useNavigate();
+  const { toast }   = useToast();
+  const location    = useLocation();
 
   const initialQty = location.state?.quantity || 1;
 
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [product,       setProduct]       = useState(null);
+  const [loading,       setLoading]       = useState(true);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const [formErrors, setFormErrors] = useState({});
-  const [units, setUnits] = useState(initialQty);
-  const [form, setForm] = useState({
-    fullName: "", contact: "", pincode: "", landmark: "", address: ""
+  const [formErrors,    setFormErrors]    = useState({});
+  const [units,         setUnits]         = useState(initialQty);
+  const [form,          setForm]          = useState({
+    fullName: "", contact: "", pincode: "", landmark: "", address: "",
   });
 
   useEffect(() => {
@@ -38,42 +38,43 @@ export default function BuyNow() {
     fetchProduct();
   }, [id]);
 
+  // ── Financials (shared logic) ──────────────────────────────────────────────
   const financialData = useMemo(() => {
-    const basePrice = (product?.price || 0) * units;
-    let percentage = 0;
-    let nextTier = 5000;
-    if (basePrice > 10000) { percentage = 7; nextTier = null; }
-    else if (basePrice > 5000) { percentage = 2; nextTier = 10000; }
-    const discountAmount = (basePrice * percentage) / 100;
-    let delivery = 0;
-    if (basePrice <= 500) delivery = 99;
-    else if (basePrice <= 1500) delivery = 149;
-    else if (basePrice <= 5000) delivery = 299;
-    else delivery = 499;
+    const subtotal       = (product?.price || 0) * units;
+    const discount       = getDiscountData(subtotal);
+    const delivery       = getDeliveryCharge(units);          // units = qty for single-product buy
+    const netBill        = subtotal - discount.amt + delivery;
+
+    // Next discount tier hint
+    let nextTierAmount = 0;
+    if (subtotal < 5000)       nextTierAmount = 5000  - subtotal;
+    else if (subtotal < 10000) nextTierAmount = 10000 - subtotal;
+
     return {
-      subtotal: basePrice,
-      discount: discountAmount,
-      discountPercentage: percentage,
-      deliveryCharge: delivery,
-      netBill: basePrice - discountAmount + delivery,
-      nextTierAmount: nextTier ? nextTier - basePrice : 0
+      subtotal,
+      discount:           discount.amt,
+      discountPercentage: discount.p,
+      deliveryCharge:     delivery,
+      netBill,
+      nextTierAmount,
     };
   }, [units, product]);
 
+  // ── Form Validation ────────────────────────────────────────────────────────
   const validate = (name, value) => {
     switch (name) {
       case "fullName": return value.trim().length < 3 ? "Name is too short" : "";
-      case "contact": return /^[6-9]\d{9}$/.test(value) ? "" : "Invalid mobile number";
-      case "pincode": return /^\d{6}$/.test(value) ? "" : "Invalid 6-digit pincode";
-      case "address": return value.trim().length < 10 ? "Full address required" : "";
-      default: return "";
+      case "contact":  return /^[6-9]\d{9}$/.test(value) ? "" : "Invalid mobile number";
+      case "pincode":  return /^\d{6}$/.test(value) ? "" : "Invalid 6-digit pincode";
+      case "address":  return value.trim().length < 10 ? "Full address required" : "";
+      default:         return "";
     }
   };
 
   const handleInput = (e) => {
     const { name, value } = e.target;
     if ((name === "pincode" || name === "contact") && value !== "" && !/^\d+$/.test(value)) return;
-    if (name === "pincode" && value.length > 6) return;
+    if (name === "pincode" && value.length > 6)  return;
     if (name === "contact" && value.length > 10) return;
     setForm(prev => ({ ...prev, [name]: value }));
     if (name !== "landmark") setFormErrors(prev => ({ ...prev, [name]: validate(name, value) }));
@@ -94,10 +95,16 @@ export default function BuyNow() {
     }
     setIsPlacingOrder(true);
     const checkoutData = {
-      items: [{ productId: product._id, productName: product.name, pricePerUnit: product.price, units, totalAmount: financialData.subtotal }],
+      items: [{
+        productId:    product._id,
+        productName:  product.name,
+        pricePerUnit: product.price,
+        units,
+        totalAmount:  financialData.subtotal,
+      }],
       form,
-      netBill: financialData.netBill,
-      financials: financialData
+      netBill:    financialData.netBill,
+      financials: financialData,
     };
     localStorage.setItem("checkout_details", JSON.stringify(checkoutData));
     setTimeout(() => {
@@ -150,9 +157,9 @@ export default function BuyNow() {
                 </p>
               </div>
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-                <InputField label="Full Name" name="fullName" value={form.fullName} onChange={handleInput} error={formErrors.fullName} />
-                <InputField label="Mobile Number" name="contact" value={form.contact} onChange={handleInput} error={formErrors.contact} />
-                <InputField label="Pincode" name="pincode" value={form.pincode} onChange={handleInput} error={formErrors.pincode} />
+                <InputField label="Full Name"           name="fullName" value={form.fullName} onChange={handleInput} error={formErrors.fullName} />
+                <InputField label="Mobile Number"       name="contact"  value={form.contact}  onChange={handleInput} error={formErrors.contact} />
+                <InputField label="Pincode"             name="pincode"  value={form.pincode}  onChange={handleInput} error={formErrors.pincode} />
                 <InputField label="Landmark (Optional)" name="landmark" value={form.landmark} onChange={handleInput} />
                 <div className="md:col-span-2 space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Full Address</label>
@@ -165,7 +172,9 @@ export default function BuyNow() {
                       formErrors.address ? "border-red-400 bg-red-50/30" : "border-stone-200 bg-stone-50 focus:border-amber-500"
                     }`}
                   />
-                  {formErrors.address && <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight">! {formErrors.address}</p>}
+                  {formErrors.address && (
+                    <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight">! {formErrors.address}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -176,15 +185,24 @@ export default function BuyNow() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700">Your Order</p>
               </div>
               <div className="p-5 flex items-center gap-5">
-                <img src={product.image} className="w-16 h-16 object-cover rounded-xl border border-stone-100 shrink-0" alt={product.name} />
+                <img
+                  src={product.image}
+                  className="w-16 h-16 object-cover rounded-xl border border-stone-100 shrink-0"
+                  alt={product.name}
+                />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-sm text-stone-900 truncate">{product.name}</h3>
                   <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
                     {product.woodType && `${product.woodType} · `}{product.thicknessMM}mm
                   </p>
                   <div className="mt-3 flex items-center border border-stone-200 w-fit rounded-xl overflow-hidden">
-                    <button onClick={() => setUnits(Math.max(1, units - 1))} className="px-4 py-2 hover:bg-stone-50 text-stone-700 font-bold transition-colors">−</button>
-                    <span className="px-4 py-2 font-mono font-bold text-sm border-x border-stone-200 min-w-[2.5rem] text-center">{units}</span>
+                    <button
+                      onClick={() => setUnits(Math.max(1, units - 1))}
+                      className="px-4 py-2 hover:bg-stone-50 text-stone-700 font-bold transition-colors"
+                    >−</button>
+                    <span className="px-4 py-2 font-mono font-bold text-sm border-x border-stone-200 min-w-[2.5rem] text-center">
+                      {units}
+                    </span>
                     <button
                       onClick={() => setUnits(units + 1)}
                       disabled={product.stock && units >= product.stock}
@@ -211,25 +229,34 @@ export default function BuyNow() {
               <div className="space-y-3 text-sm mb-5">
                 <div className="flex justify-between text-stone-600">
                   <span>Subtotal</span>
-                  <span className="font-mono font-bold text-stone-900">₹{financialData.subtotal.toLocaleString()}</span>
+                  <span className="font-mono font-bold text-stone-900">
+                    ₹{financialData.subtotal.toLocaleString()}
+                  </span>
                 </div>
                 {financialData.discount > 0 && (
                   <div className="flex justify-between text-emerald-600 font-semibold">
                     <span>Discount ({financialData.discountPercentage}%)</span>
-                    <span className="font-mono">−₹{financialData.discount.toLocaleString()}</span>
+                    <span className="font-mono">−₹{Math.round(financialData.discount).toLocaleString()}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-stone-600">
-                  <span>Shipping</span>
-                  <span className="font-mono font-bold text-stone-900">₹{financialData.deliveryCharge.toLocaleString()}</span>
+                  <span>
+                    Delivery
+                    <span className="ml-1 text-[9px] text-stone-400 font-bold">({units} units)</span>
+                  </span>
+                  <span className="font-mono font-bold text-stone-900">
+                    ₹{financialData.deliveryCharge.toLocaleString()}
+                  </span>
                 </div>
+
+                {/* Tier unlock hint */}
                 {financialData.nextTierAmount > 0 && (
                   <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl">
                     <div className="flex items-center gap-1.5 text-amber-800 font-bold text-[9px] uppercase mb-1">
-                      <Package size={12} /> Tier Unlock Available
+                      <Package size={12} /> Discount Tier Available
                     </div>
                     <p className="text-[10px] text-amber-700">
-                      Add <b>₹{financialData.nextTierAmount.toLocaleString()}</b> for a higher discount.
+                      Add <b>₹{financialData.nextTierAmount.toLocaleString()}</b> more to unlock a higher discount.
                     </p>
                   </div>
                 )}
@@ -237,18 +264,37 @@ export default function BuyNow() {
 
               <div className="border-t border-stone-200 py-5 flex justify-between items-baseline">
                 <span className="font-bold text-stone-900 uppercase tracking-widest text-[10px]">Total Payable</span>
-                <span className="text-2xl font-bold text-amber-800">₹{financialData.netBill.toLocaleString()}</span>
+                <span className="text-2xl font-bold text-amber-800">
+                  ₹{Math.round(financialData.netBill).toLocaleString()}
+                </span>
               </div>
 
-              <Button
+              <button
                 onClick={handleGoToPayment}
                 disabled={isPlacingOrder}
                 className="w-full h-12 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold uppercase tracking-widest text-[11px] transition-all active:scale-95 shadow-md disabled:opacity-60"
               >
-                {isPlacingOrder ? <Loader2 className="animate-spin h-4 w-4" /> : "Proceed to Payment"}
-              </Button>
+                {isPlacingOrder
+                  ? <Loader2 className="animate-spin h-4 w-4 mx-auto" />
+                  : "Proceed to Payment"}
+              </button>
 
-              <div className="mt-5 flex items-center justify-center gap-2 text-[9px] text-stone-400 uppercase tracking-widest font-bold border-t border-stone-100 pt-5">
+              {/* Delivery rate card */}
+              <div className="mt-5 pt-5 border-t border-stone-100 space-y-1.5">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400 mb-2">Delivery Rates</p>
+                {[
+                  { label: "Under 50 units",  rate: "₹299" },
+                  { label: "50 – 99 units",   rate: "₹699" },
+                  { label: "100+ units",       rate: "₹899" },
+                ].map((row) => (
+                  <div key={row.label} className="flex justify-between text-[10px] text-stone-400 font-bold uppercase tracking-wider">
+                    <span>{row.label}</span>
+                    <span className={financialData.deliveryCharge === parseInt(row.rate.replace("₹","")) ? "text-amber-700" : ""}>{row.rate}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex items-center justify-center gap-2 text-[9px] text-stone-400 uppercase tracking-widest font-bold border-t border-stone-100 pt-4">
                 <ShieldCheck size={13} className="text-emerald-500" /> Verified Secure Checkout
               </div>
             </div>

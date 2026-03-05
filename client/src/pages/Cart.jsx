@@ -1,43 +1,66 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Trash2, ShoppingBag, ArrowLeft, Loader2, ShieldCheck, Zap } from "lucide-react";
-import { Button } from "../ui/button";
+import { Trash2, ShoppingBag, ArrowLeft, Loader2, ShieldCheck, Zap, Package } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import CartItem from "../components/CartItem";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+
+// ─── Shared Pricing Logic ────────────────────────────────────────────────────
+// Discount: subtotal > ₹10,000 → 5% | > ₹5,000 → 2% | else 0%
+export const getDiscountData = (subtotal) => {
+  if (subtotal > 10000) return { p: 5, amt: subtotal * 0.05 };
+  if (subtotal > 5000)  return { p: 2, amt: subtotal * 0.02 };
+  return { p: 0, amt: 0 };
+};
+
+// Delivery: based on total quantity of tiles ordered
+// < 50 units → ₹299 | 50–99 → ₹699 | ≥ 100 → ₹899 | empty cart → ₹0
+export const getDeliveryCharge = (totalQty) => {
+  if (totalQty === 0)   return 0;
+  if (totalQty < 50)   return 299;
+  if (totalQty < 100)  return 699;
+  return 899;
+};
+
+// Upsell copy for discount tiers
+export const getUpsellMessage = (subtotal) => {
+  if (subtotal <= 0)    return null;
+  if (subtotal < 5000)  return { text: `Add ₹${(5000 - subtotal).toLocaleString("en-IN")} more to unlock a 2% discount`, tier: "amber" };
+  if (subtotal < 10000) return { text: `Add ₹${(10000 - subtotal).toLocaleString("en-IN")} more to unlock a 5% discount`, tier: "emerald" };
+  return { text: "Maximum 5% volume discount applied!", tier: "emerald" };
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 const Cart = () => {
   const navigate = useNavigate();
   const { cartItems, getCartTotal, getCartItemCount, clearCart, isLoading } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  const subtotal = getCartTotal();
+  const subtotal  = getCartTotal();
+  const totalQty  = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
-  const discountData = useMemo(() => {
-    if (subtotal >= 100000) return { p: 8, amt: subtotal * 0.08 };
-    if (subtotal >= 50000) return { p: 5, amt: subtotal * 0.05 };
-    return { p: 0, amt: 0 };
-  }, [subtotal]);
-
-  const deliveryCharge = subtotal >= 10000 || subtotal === 0 ? 0 : 499;
-  const totalPayable = subtotal - discountData.amt + deliveryCharge;
+  const discountData    = useMemo(() => getDiscountData(subtotal),    [subtotal]);
+  const deliveryCharge  = useMemo(() => getDeliveryCharge(totalQty),  [totalQty]);
+  const totalPayable    = subtotal - discountData.amt + deliveryCharge;
+  const upsell          = useMemo(() => getUpsellMessage(subtotal),   [subtotal]);
 
   const handleProceedToCheckout = () => {
     setIsCheckingOut(true);
     const productsSnapshot = cartItems.map((item) => ({
       productId: item._id,
-      name: item.name,
-      image: item.image,
-      price: item.price,
-      quantity: item.quantity,
-      total: item.total,
+      name:      item.name,
+      image:     item.image,
+      price:     item.price,
+      quantity:  item.quantity,
+      total:     item.total,
     }));
     localStorage.setItem("checkout_products", JSON.stringify(productsSnapshot));
     navigate("/buy-all");
     setIsCheckingOut(false);
   };
 
+  // ── Loading ──
   if (isLoading && cartItems.length === 0) {
     return (
       <div className="min-h-screen flex flex-col bg-stone-50">
@@ -49,6 +72,7 @@ const Cart = () => {
     );
   }
 
+  // ── Empty ──
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen flex flex-col bg-stone-50">
@@ -61,12 +85,12 @@ const Cart = () => {
           <p className="text-stone-500 max-w-xs mb-8 text-sm leading-relaxed">
             You haven't added any products yet.
           </p>
-          <Button
+          <button
             onClick={() => navigate("/products")}
-            className="bg-stone-900 hover:bg-stone-800 text-white px-8 h-12 rounded-xl uppercase tracking-widest text-[11px] font-bold"
+            className="bg-stone-900 hover:bg-stone-800 text-white px-8 h-12 rounded-xl uppercase tracking-widest text-[11px] font-bold transition-all active:scale-95"
           >
             Browse Products
-          </Button>
+          </button>
         </div>
         <Footer />
       </div>
@@ -77,7 +101,7 @@ const Cart = () => {
     <div className="min-h-screen flex flex-col bg-stone-50">
       <Navbar />
 
-      {/* Hero — dark hero consistent with all pages */}
+      {/* Hero */}
       <section className="bg-stone-900 text-stone-50 border-b border-amber-900/20">
         <div className="container max-w-7xl mx-auto px-6 py-16 md:py-20">
           <button
@@ -112,6 +136,26 @@ const Cart = () => {
 
           {/* Items */}
           <div className="lg:col-span-8 space-y-3">
+
+            {/* Upsell Banner */}
+            {upsell && (
+              <div className={`p-4 rounded-xl border flex items-center gap-3 ${
+                upsell.tier === "emerald"
+                  ? "bg-emerald-50 border-emerald-100 text-emerald-900"
+                  : "bg-amber-50 border-amber-100 text-amber-900"
+              }`}>
+                <Package size={13} className={upsell.tier === "emerald" ? "text-emerald-600 shrink-0" : "text-amber-600 shrink-0"} />
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em]">{upsell.text}</p>
+                <div className="h-1 flex-1 bg-stone-200/50 rounded-full overflow-hidden hidden sm:block ml-auto">
+                  <div
+                    className={`h-full transition-all duration-700 rounded-full ${upsell.tier === "emerald" ? "bg-emerald-400" : "bg-amber-400"}`}
+                    style={{ width: `${Math.min((subtotal / 10000) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Column headers */}
             <div className="hidden md:grid grid-cols-12 px-5 mb-2 text-[10px] uppercase tracking-widest font-bold text-stone-400">
               <div className="col-span-6">Product</div>
               <div className="col-span-3 text-center">Quantity</div>
@@ -121,6 +165,13 @@ const Cart = () => {
             {cartItems.map((item) => (
               <CartItem key={item._id} item={item} />
             ))}
+
+            {/* Delivery info note */}
+            <div className="flex items-center gap-2 pt-1 px-1">
+              <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">
+                Delivery: ₹299 for &lt;50 units · ₹699 for 50–99 · ₹899 for 100+
+              </p>
+            </div>
 
             <div className="flex justify-end pt-2">
               <button
@@ -147,12 +198,15 @@ const Cart = () => {
                 {discountData.p > 0 && (
                   <div className="flex justify-between text-emerald-600 font-semibold">
                     <span>Discount ({discountData.p}%)</span>
-                    <span>− ₹{discountData.amt.toLocaleString("en-IN")}</span>
+                    <span>− ₹{Math.round(discountData.amt).toLocaleString("en-IN")}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-stone-600">
-                  <span>Delivery</span>
-                  <span className="font-bold">
+                  <span>
+                    Delivery
+                    <span className="ml-1 text-[9px] text-stone-400 font-bold">({totalQty} units)</span>
+                  </span>
+                  <span className="font-bold text-stone-900">
                     {deliveryCharge === 0
                       ? <span className="text-emerald-600">Free</span>
                       : `₹${deliveryCharge}`}
@@ -167,13 +221,13 @@ const Cart = () => {
                 </span>
               </div>
 
-              <Button
+              <button
                 onClick={handleProceedToCheckout}
                 disabled={isCheckingOut || isLoading}
-                className="w-full bg-stone-900 hover:bg-stone-800 text-white h-12 rounded-xl font-bold uppercase tracking-widest text-[11px] disabled:opacity-60 transition-all"
+                className="w-full bg-stone-900 hover:bg-stone-800 text-white h-12 rounded-xl font-bold uppercase tracking-widest text-[11px] disabled:opacity-60 transition-all active:scale-95"
               >
-                {isCheckingOut ? <Loader2 className="animate-spin h-4 w-4" /> : "Proceed to Checkout"}
-              </Button>
+                {isCheckingOut ? <Loader2 className="animate-spin h-4 w-4 mx-auto" /> : "Proceed to Checkout"}
+              </button>
 
               <div className="mt-6 space-y-2.5 border-t border-stone-100 pt-5">
                 <div className="flex items-center gap-2 text-[10px] text-stone-400 uppercase tracking-widest font-bold">
