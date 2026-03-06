@@ -15,7 +15,7 @@ const router = express.Router();
 
 // --- Customer Routes ---
 router.post("/submit", verifyToken, submitVerifiedFeedback);
-router.get("/verify-eligibility/:productId", verifyToken, checkFeedbackEligibility);
+router.get("/verify/verify-eligibility/:productId", verifyToken, checkFeedbackEligibility);
 router.get("/my-history", verifyToken, getMyFeedbackHistory);
 router.get("/product/:productId", getProductReviews);
 

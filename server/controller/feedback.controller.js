@@ -3,27 +3,35 @@ import Order from "../model/order.model.js";
 import mongoose from "mongoose";
 
 /**
- * CUSTOMER: Verify if user can leave feedback
+ * CUSTOMER: Verify if user can leave feedback for a product
+ * Checks: user has a delivered order containing this product AND hasn't already reviewed it
  */
 export const checkFeedbackEligibility = async (req, res) => {
   try {
-    const productId = new mongoose.Types.ObjectId(req.params.productId);
+    const { productId } = req.params;
     const userId = req.user._id;
 
-    const hasDeliveredOrder = await Order.findOne({
+    const productObjectId = new mongoose.Types.ObjectId(productId);
+
+    // Find a delivered order for this user that contains the product
+    const deliveredOrder = await Order.findOne({
       userId,
       orderStatus: "delivered",
-      "items.productId": productId,
+      "items.productId": productObjectId,
     });
 
-    if (!hasDeliveredOrder) {
+    if (!deliveredOrder) {
       return res.status(200).json({
         eligible: false,
-        message: "Only verified purchasers of delivered items can leave a review.",
+        message: "You can only leave feedback after receiving a delivered order containing this product.",
       });
     }
 
-    const existingFeedback = await Feedback.findOne({ userId, productId });
+    // Check if feedback already exists for this user + product combo
+    const existingFeedback = await Feedback.findOne({
+      userId,
+      productId: productObjectId,
+    });
 
     res.status(200).json({
       eligible: !existingFeedback,
@@ -98,7 +106,6 @@ export const editMyFeedback = async (req, res) => {
       return res.status(404).json({ message: "Feedback not found." });
     }
 
-    // Make sure the logged-in user owns this feedback
     if (feedback.userId.toString() !== userId.toString()) {
       return res.status(403).json({ message: "Unauthorized: You can only edit your own reviews." });
     }
@@ -133,7 +140,6 @@ export const deleteMyFeedback = async (req, res) => {
       return res.status(404).json({ message: "Feedback not found." });
     }
 
-    // Make sure the logged-in user owns this feedback
     if (feedback.userId.toString() !== userId.toString()) {
       return res.status(403).json({ message: "Unauthorized: You can only delete your own reviews." });
     }
