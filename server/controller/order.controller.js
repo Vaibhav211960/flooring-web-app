@@ -1,45 +1,76 @@
 import Order from "../model/order.model.js";
 import Product from "../model/product.model.js";
-import Payment from "../model/payment.model.js"; // Import your payment model
+import Payment from "../model/payment.model.js";
 import mongoose from "mongoose";
 
 /**
  * CUSTOMER: Place an order
+ * 
+ * FIX: Never trust productName from the client — fetch it from the DB.
+ * This prevents ValidationError when the client sends an empty/missing name.
  */
-
 export const createOrder = async (req, res) => {
   try {
     const { items, netBill, paymentMode, shippingAddress, paymentMethod } = req.body;
 
-    // FETCH USER ID SECURELY
-    const userId = req.user._id; 
-
+    const userId = req.user._id;
     if (!userId) {
       return res.status(401).json({ message: "User authentication failed" });
     }
 
-    // ... (Stock check logic here) ...
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: "No items in order" });
+    }
+
+    // ── Resolve product names from DB so we never depend on client-sent names ──
+    const productIds = items.map((item) => item.productId).filter(Boolean);
+
+    let productMap = {};
+    if (productIds.length > 0) {
+      const products = await Product.find(
+        { _id: { $in: productIds } },
+        "name price"                          // only fetch what we need
+      );
+      productMap = Object.fromEntries(
+        products.map((p) => [p._id.toString(), p])
+      );
+    }
+
+    // ── Build sanitized items, filling in name/price from DB if client omitted them ──
+    const sanitizedItems = items.map((item) => {
+      const productIdStr = item.productId?.toString();
+      const dbProduct    = productMap[productIdStr];
+
+      return {
+        productId:    item.productId,
+        productName:  dbProduct?.name       || item.productName  || item.name || "Product",
+        pricePerUnit: dbProduct?.price      || item.pricePerUnit || item.price || 0,
+        units:        item.units            || item.quantity     || 1,
+        totalAmount:  item.totalAmount      || item.total
+                      || (item.pricePerUnit || item.price || 0) * (item.units || item.quantity || 1),
+      };
+    });
 
     // 1. Create Payment first
     const newPayment = await Payment.create({
-      paymentMode: paymentMethod, 
-      amount: netBill,
+      paymentMode:   paymentMethod,
+      amount:        netBill,
       paymentStatus: paymentMode === "COD" ? "processing" : "confirmed",
-      orderId: new mongoose.Types.ObjectId(), // Placeholder
+      orderId:       new mongoose.Types.ObjectId(), // placeholder, updated below
     });
 
-    // 2. Create Order with the SECURED userId
+    // 2. Create Order
     const order = await Order.create({
-      userId, // Now it's guaranteed!
-      items,
+      userId,
+      items:           sanitizedItems,
       shippingAddress,
       netBill,
       paymentMode,
-      paymentId: newPayment._id,
-      orderStatus: "pending"
+      paymentId:       newPayment._id,
+      orderStatus:     "pending",
     });
 
-    // 3. Link Payment to the real Order ID
+    // 3. Link payment to real order ID
     newPayment.orderId = order._id;
     await newPayment.save();
 
@@ -56,11 +87,8 @@ export const createOrder = async (req, res) => {
  */
 export const getMyOrders = async (req, res) => {
   try {
-    // Mongoose uses _id by default. 
-    // Since req.user is a Mongoose document, .id is a virtual for ._id
     const orders = await Order.find({ userId: req.user._id })
       .sort({ createdAt: -1 });
-      
     res.status(200).json({ orders });
   } catch (err) {
     console.error("Order Fetch Error:", err);
@@ -74,7 +102,7 @@ export const getMyOrders = async (req, res) => {
 export const getOrderById = async (req, res) => {
   try {
     const order = await Order.findOne({
-      _id: req.params.id,
+      _id:    req.params.id,
       userId: req.user.id,
     });
 
@@ -94,7 +122,7 @@ export const getOrderById = async (req, res) => {
 export const cancelOrder = async (req, res) => {
   try {
     const order = await Order.findOne({
-      _id: req.params.id,
+      _id:    req.params.id,
       userId: req.user.id,
     });
 
@@ -111,10 +139,7 @@ export const cancelOrder = async (req, res) => {
     order.orderStatus = "cancel";
     await order.save();
 
-    res.status(200).json({
-      message: "Order cancelled successfully",
-      order,
-    });
+    res.status(200).json({ message: "Order cancelled successfully", order });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
@@ -125,30 +150,22 @@ export const cancelOrder = async (req, res) => {
  */
 export const getAllOrders = async (req, res) => {
   try {
-    // 1. Consider adding pagination via query params (e.g., ?page=1&limit=20)
-  
-    // 2. Execution with sorting and population
     const orders = await Order.find()
-      .populate("userId", "name email") // Very helpful for admin dashboards
-      .sort({ createdAt: -1 })
+      .populate("userId", "name email")
+      .sort({ createdAt: -1 });
 
-    // 3. Optional: Get total count for frontend pagination UI
-    // const totalOrders = await Order.countDocuments();
-
-    res.status(200).json({ 
+    res.status(200).json({
       success: true,
-      count: orders.length,
-      orders 
+      count:   orders.length,
+      orders,
     });
   } catch (err) {
-    // 4. Improved logging
     console.error(`[ADMIN_ORDER_FETCH_ERROR]: ${err.stack}`);
-    res.status(500).json({ 
-      success: false, 
-      message: "Server error: Unable to retrieve orders." 
+    res.status(500).json({
+      success: false,
+      message: "Server error: Unable to retrieve orders.",
     });
   }
-  // res.status(200).json({ message: "Admin order retrieval endpoint - implementation pending" });
 };
 
 /**
@@ -156,19 +173,17 @@ export const getAllOrders = async (req, res) => {
  */
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id }     = req.params;
     const { status } = req.body;
 
-    // 1. Validate if the status is part of your Schema enum
     const validStatuses = ["pending", "arriving", "delivered", "cancel"];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invalid status update requested." 
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status update requested.",
       });
     }
 
-    // 2. Update the order
     const updatedOrder = await Order.findByIdAndUpdate(
       id,
       { orderStatus: status },
@@ -182,13 +197,14 @@ export const updateOrderStatus = async (req, res) => {
     res.status(200).json({
       success: true,
       message: `Order status updated to ${status}`,
-      order: updatedOrder,
+      order:   updatedOrder,
     });
   } catch (err) {
     console.error("UPDATE_STATUS_ERROR:", err.message);
     res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
+
 /**
  * ADMIN: Delete order
  */
@@ -196,17 +212,14 @@ export const deleteOrder = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1. Perform deletion
     const deletedOrder = await Order.findByIdAndDelete(id);
 
     if (!deletedOrder) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Order record not found in registry." 
+      return res.status(404).json({
+        success: false,
+        message: "Order record not found in registry.",
       });
     }
-
-    // Optional: If you want to delete associated payments, do it here.
 
     res.status(200).json({
       success: true,

@@ -4,10 +4,10 @@ import { Plus, Edit3, Trash2, ImageIcon, AlignLeft, Globe, Loader2 } from "lucid
 import { toast } from "react-hot-toast";
 
 const Categories = () => {
-  const [categories, setCategories] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [categories,       setCategories]       = useState([]);
+  const [isLoading,        setIsLoading]        = useState(true);
+  const [isModalOpen,      setIsModalOpen]      = useState(false);
+  const [editingCategory,  setEditingCategory]  = useState(null);
 
   const fetchCategories = async () => {
     try {
@@ -17,22 +17,16 @@ const Categories = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCategories(res.data.categories);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load categories.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  useEffect(() => { fetchCategories(); }, []);
 
-  const openAddModal = () => {
-    setEditingCategory(null);
-    setIsModalOpen(true);
-  };
-
+  const openAddModal  = () => { setEditingCategory(null); setIsModalOpen(true); };
   const openEditModal = (category) => {
     setEditingCategory({ ...category, imageUrl: category.image });
     setIsModalOpen(true);
@@ -42,10 +36,10 @@ const Categories = () => {
     try {
       const token = localStorage.getItem("adminToken");
       const payload = {
-        name: data.name,
+        name:        data.name,
         description: data.description,
-        image: data.imageUrl,
-        status: data.isActive || "active",
+        image:       data.imageUrl,
+        status:      data.isActive || "active",
       };
 
       if (editingCategory) {
@@ -150,11 +144,9 @@ const Categories = () => {
                 <tr key={cat._id} className="hover:bg-stone-50/50 transition-colors group">
                   <td className="p-5">
                     <div className="h-12 w-16 rounded-lg overflow-hidden border border-stone-200 bg-stone-100 flex items-center justify-center">
-                      {cat.image ? (
-                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <ImageIcon size={16} className="text-stone-300" />
-                      )}
+                      {cat.image
+                        ? <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                        : <ImageIcon size={16} className="text-stone-300" />}
                     </div>
                   </td>
                   <td className="p-5">
@@ -167,30 +159,20 @@ const Categories = () => {
                     /{cat.name.toLowerCase().replace(/ /g, "-")}
                   </td>
                   <td className="p-5">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-widest border ${
-                        cat.isActive === false
-                          ? "bg-stone-100 text-stone-400 border-stone-200"
-                          : "bg-emerald-50 text-emerald-700 border-emerald-100"
-                      }`}
-                    >
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-widest border ${
+                      cat.isActive === false
+                        ? "bg-stone-100 text-stone-400 border-stone-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-100"
+                    }`}>
                       {cat.isActive === false ? "inactive" : "active"}
                     </span>
                   </td>
                   <td className="p-5">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => openEditModal(cat)}
-                        className="p-2 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-all"
-                        title="Edit"
-                      >
+                      <button onClick={() => openEditModal(cat)} className="p-2 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-all" title="Edit">
                         <Edit3 size={16} />
                       </button>
-                      <button
-                        onClick={() => deleteCategory(cat._id)}
-                        className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                        title="Delete"
-                      >
+                      <button onClick={() => deleteCategory(cat._id)} className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -213,19 +195,69 @@ const Categories = () => {
   );
 };
 
-// --- Modal ---
+// ── Modal ───────────────────────────────────────────────────────────────────
+const VALIDATORS = {
+  name:     (v) => (!v.trim() ? "Collection name is required" : v.trim().length < 2 ? "Name too short" : ""),
+  imageUrl: (v) => (v && !v.startsWith("http") ? "Must be a valid URL starting with http" : ""),
+  description: () => "",
+  isActive:    () => "",
+};
+
 const CategoryModal = ({ onClose, onSave, category }) => {
   const [formData, setFormData] = useState(
     category || { name: "", slug: "", isActive: "active", description: "", imageUrl: "" }
   );
+  const [errors,   setErrors]   = useState({});
+  const [touched,  setTouched]  = useState({});
   const [isSaving, setIsSaving] = useState(false);
+
+  const validate = (data = formData) => {
+    const errs = {};
+    Object.entries(VALIDATORS).forEach(([k, fn]) => {
+      const msg = fn(data[k] || "");
+      if (msg) errs[k] = msg;
+    });
+    return errs;
+  };
+
+  const handleChange = (key, value) => {
+    const updated = { ...formData, [key]: value };
+    if (key === "name") updated.slug = value.toLowerCase().replace(/ /g, "-");
+    setFormData(updated);
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    // Clear that field's error live
+    const fieldErr = VALIDATORS[key]?.(value) || "";
+    setErrors((prev) => ({ ...prev, [key]: fieldErr }));
+  };
+
+  const handleBlur = (key) => {
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    const fieldErr = VALIDATORS[key]?.(formData[key] || "") || "";
+    setErrors((prev) => ({ ...prev, [key]: fieldErr }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setTouched({ name: true, imageUrl: true, description: true, isActive: true });
+    const errs = validate();
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      toast.error("Please fix the errors before saving.");
+      return;
+    }
     setIsSaving(true);
     await onSave(formData);
     setIsSaving(false);
   };
+
+  const inputClass = (key) =>
+    `w-full bg-stone-50 border rounded-xl px-4 py-3 text-sm outline-none transition-all ${
+      touched[key] && errors[key]
+        ? "border-red-400 ring-2 ring-red-50 bg-red-50/30"
+        : touched[key] && !errors[key] && formData[key]
+        ? "border-emerald-400 ring-2 ring-emerald-50"
+        : "border-stone-200 focus:border-amber-500"
+    }`;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-stone-900/40 backdrop-blur-sm">
@@ -235,12 +267,7 @@ const CategoryModal = ({ onClose, onSave, category }) => {
           <h2 className="font-serif text-xl font-bold text-stone-900">
             {category ? "Modify Collection" : "New Collection"}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-stone-400 hover:text-stone-900 text-2xl leading-none transition-colors"
-          >
-            &times;
-          </button>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-900 text-2xl leading-none transition-colors">&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
@@ -249,30 +276,34 @@ const CategoryModal = ({ onClose, onSave, category }) => {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
-                  Collection Name
+                  Collection Name <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
-                  required
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all"
+                  className={inputClass("name")}
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      name: e.target.value,
-                      slug: e.target.value.toLowerCase().replace(/ /g, "-"),
-                    })
-                  }
+                  onChange={(e) => handleChange("name", e.target.value)}
+                  onBlur={() => handleBlur("name")}
                 />
+                {touched.name && errors.name ? (
+                  <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight flex items-center gap-1">
+                    <span>!</span> {errors.name}
+                  </p>
+                ) : touched.name && !errors.name && formData.name ? (
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight flex items-center gap-1">
+                    <span>✓</span> Looks good
+                  </p>
+                ) : null}
               </div>
+
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500 flex items-center gap-1">
                   <Globe size={10} /> Visibility Status
                 </label>
                 <select
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all"
+                  className={inputClass("isActive")}
                   value={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.value })}
+                  onChange={(e) => handleChange("isActive", e.target.value)}
                 >
                   <option value="active">Active (Visible)</option>
                   <option value="inactive">Archived (Hidden)</option>
@@ -283,16 +314,20 @@ const CategoryModal = ({ onClose, onSave, category }) => {
             {/* Right col */}
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
-                  Image URL
-                </label>
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Image URL</label>
                 <input
                   type="text"
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all"
+                  className={inputClass("imageUrl")}
                   placeholder="https://..."
                   value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                  onChange={(e) => handleChange("imageUrl", e.target.value)}
+                  onBlur={() => handleBlur("imageUrl")}
                 />
+                {touched.imageUrl && errors.imageUrl && (
+                  <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight flex items-center gap-1">
+                    <span>!</span> {errors.imageUrl}
+                  </p>
+                )}
               </div>
               <div className="h-24 w-full rounded-xl border-2 border-dashed border-stone-200 bg-stone-50 overflow-hidden flex items-center justify-center">
                 {formData.imageUrl ? (
@@ -312,11 +347,11 @@ const CategoryModal = ({ onClose, onSave, category }) => {
             <textarea
               className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 h-24 resize-none transition-all"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => handleChange("description", e.target.value)}
             />
           </div>
 
-          {/* Footer buttons */}
+          {/* Footer */}
           <div className="flex gap-3 pt-2">
             <button
               type="button"
@@ -330,13 +365,7 @@ const CategoryModal = ({ onClose, onSave, category }) => {
               disabled={isSaving}
               className="flex-1 px-4 py-3 rounded-xl bg-stone-900 text-amber-500 text-[10px] font-bold uppercase tracking-widest hover:bg-stone-800 transition-all shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              {isSaving ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : category ? (
-                "Update Registry"
-              ) : (
-                "Create Collection"
-              )}
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : category ? "Update Registry" : "Create Collection"}
             </button>
           </div>
         </form>

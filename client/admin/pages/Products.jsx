@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
-  ImageIcon, IndianRupee, Layers, Pipette, Ruler, Tag, Package,
-  AlignLeft, Plus, Droplets, Trash2, Edit3, Search, Globe, Loader2, ShieldCheck , X
+  ImageIcon, IndianRupee, Package,
+  Plus, Droplets, Trash2, Edit3, Search, Loader2, X
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 const Products = () => {
-  const [products, setProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [products,       setProducts]       = useState([]);
+  const [isLoading,      setIsLoading]      = useState(true);
+  const [searchTerm,     setSearchTerm]     = useState("");
+  const [isModalOpen,    setIsModalOpen]    = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
   const fetchProducts = async () => {
@@ -28,29 +28,20 @@ const Products = () => {
     }
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  useEffect(() => { fetchProducts(); }, []);
 
   const filteredProducts = products.filter((p) => {
     const s = searchTerm.toLowerCase();
     return (
       p.name?.toLowerCase().includes(s) ||
-      p.sku?.toLowerCase().includes(s) || // Added SKU to search
+      p.sku?.toLowerCase().includes(s) ||
       p.materialType?.toLowerCase().includes(s) ||
       p.subCategoryId?.name?.toLowerCase().includes(s)
     );
   });
 
-  const openAddModal = () => {
-    setEditingProduct(null);
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (p) => {
-    setEditingProduct(p);
-    setIsModalOpen(true);
-  };
+  const openAddModal  = () => { setEditingProduct(null); setIsModalOpen(true); };
+  const openEditModal = (p) => { setEditingProduct(p);   setIsModalOpen(true); };
 
   const deleteProduct = async (id) => {
     toast(
@@ -92,10 +83,7 @@ const Products = () => {
   const saveProduct = async (data) => {
     try {
       const token = localStorage.getItem("token");
-      const payload = {
-        ...data,
-        isActive: data.isActive === "active",
-      };
+      const payload = { ...data, isActive: data.isActive === "active" };
 
       if (editingProduct) {
         await axios.put(`http://localhost:5000/api/products/${editingProduct._id}`, payload, {
@@ -169,7 +157,9 @@ const Products = () => {
                     <td className="p-5">
                       <div className="flex items-center gap-4">
                         <div className="h-14 w-14 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 shrink-0 flex items-center justify-center">
-                          {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <ImageIcon size={20} className="text-stone-300" />}
+                          {p.image
+                            ? <img src={p.image[0] || p.image[1] || "https://directflooringonline.co.uk/wp-content/uploads/2024/02/Habitat-Oak-Glue-Down-LVT-Flooring-Bedroom-1.jpg"} alt={p.name} className="w-full h-full object-cover" />
+                            : <ImageIcon size={20} className="text-stone-300" />}
                         </div>
                         <div>
                           <span className="text-sm font-bold text-stone-900 block">{p.name}</span>
@@ -207,7 +197,9 @@ const Products = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="p-20 text-center text-stone-400 italic text-sm">No materials match your parameters.</td>
+                  <td colSpan="5" className="p-20 text-center text-stone-400 italic text-sm">
+                    No materials match your parameters.
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -216,38 +208,64 @@ const Products = () => {
       </div>
 
       {isModalOpen && (
-        <ProductModal onClose={() => setIsModalOpen(false)} onSave={saveProduct} product={editingProduct} />
+        <ProductModal
+          onClose={() => setIsModalOpen(false)}
+          onSave={saveProduct}
+          product={editingProduct}
+        />
       )}
     </div>
   );
 };
 
-// --- Updated Modal for New Schema ---
-const ProductModal = ({ onClose, onSave, product }) => {
-  const [subCategories, setSubCategories] = useState([]);
-  const [errors, setErrors] = useState({});
-  const [isSaving, setIsSaving] = useState(false);
+// ── Validation rules ─────────────────────────────────────────────────────────
+// isEdit=true skips name & sku since those fields are disabled when editing
+const VALIDATORS = {
+  name:          (v, isEdit) => isEdit ? "" : (!v?.trim() ? "Required" : ""),
+  sku:           (v, isEdit) => isEdit ? "" : (!v?.trim() ? "Required" : ""),
+  materialType:  (v)         => !v?.trim() ? "Required" : "",
+  subCategoryId: (v)         => !v ? "Required" : "",
+  price:         (v)         => (!v || Number(v) <= 0) ? "Enter a valid price" : "",
+  pricePerBox:   (v)         => (!v || Number(v) <= 0) ? "Enter a valid price per box" : "",
+  stock:         (v)         => (v === "" || Number(v) < 0) ? "Enter a valid stock value" : "",
+  lengthMM:      (v)         => (!v || Number(v) <= 0) ? "Enter a valid length" : "",
+  widthMM:       (v)         => (!v || Number(v) <= 0) ? "Enter a valid width" : "",
+  image:         (v)         => !v?.trim() ? "Required" : !v.startsWith("http") ? "Must be a valid URL" : "",
+};
 
-  // Initialize with all new schema fields
+// ── Modal ─────────────────────────────────────────────────────────────────────
+const ProductModal = ({ onClose, onSave, product }) => {
+  const isEdit = !!product;
+
+  const [subCategories, setSubCategories] = useState([]);
+  const [errors,        setErrors]        = useState({});
+  const [touched,       setTouched]       = useState({});
+  const [isSaving,      setIsSaving]      = useState(false);
+
   const [formData, setFormData] = useState(
-    product ? {
-      ...product,
-      subCategoryId: product.subCategoryId?._id || product.subCategoryId,
-      isActive: product.isActive ? "active" : "inactive",
-    } : {
-      name: "", sku: "", description: "", image: "",
-      price: "", pricePerBox: "", unit: "sqft", stock: "",
-      materialType: "", woodType: "", color: "", colorFamily: "", finish: "",
-      thicknessMM: "", lengthMM: "", widthMM: "", waterResistance: "Not-resistant",
-      subCategoryId: "", isActive: "active"
-    }
+    product
+      ? {
+          ...product,
+          subCategoryId: product.subCategoryId?._id || product.subCategoryId,
+          isActive:      product.isActive ? "active" : "inactive",
+        }
+      : {
+          name: "", sku: "", description: "", image: "",
+          price: "", pricePerBox: "", unit: "sqft", stock: "",
+          materialType: "", woodType: "", color: "", colorFamily: "", finish: "",
+          thicknessMM: "", lengthMM: "", widthMM: "",
+          waterResistance: "Not-resistant",
+          subCategoryId: "", isActive: "active",
+        }
   );
 
   useEffect(() => {
     const fetchCats = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/subcategories", { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.get("http://localhost:5000/api/subcategories", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setSubCategories(res.data.subCategories);
       } catch {
         toast.error("Failed to load categories.");
@@ -256,189 +274,387 @@ const ProductModal = ({ onClose, onSave, product }) => {
     fetchCats();
   }, []);
 
-  const validate = () => {
-    const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Required";
-    // If we are editing, SKU shouldn't be required to change, but must exist. If new, must be filled.
-    if (!product && !formData.sku?.trim()) newErrors.sku = "Required"; 
-    if (!formData.materialType?.trim()) newErrors.materialType = "Required";
-    if (!formData.subCategoryId) newErrors.subCategoryId = "Required";
-    if (!formData.price || formData.price <= 0) newErrors.price = "Invalid Price";
-    if (formData.stock === "" || formData.stock < 0) newErrors.stock = "Invalid Stock";
-    if (!formData.pricePerBox || formData.pricePerBox <= 0) newErrors.pricePerBox = "Invalid Price Per Box";
-    if (!formData.lengthMM || formData.lengthMM <= 0) newErrors.lengthMM = "Invalid Length";
-    if (!formData.widthMM || formData.widthMM <= 0) newErrors.widthMM = "Invalid Width";
-    if (!formData.image.trim()) newErrors.image = "Required";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  // Update a field, mark it touched, and re-validate it live
+  const set = (key, val) => {
+    setFormData((prev) => ({ ...prev, [key]: val }));
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    const msg = VALIDATORS[key] ? VALIDATORS[key](val, isEdit) : "";
+    setErrors((prev) => ({ ...prev, [key]: msg }));
+  };
+
+  // Validate on blur for fields the user tabbed through without typing
+  const handleBlur = (key) => {
+    if (touched[key]) return; // already touched via typing — skip
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    const msg = VALIDATORS[key] ? VALIDATORS[key](formData[key], isEdit) : "";
+    setErrors((prev) => ({ ...prev, [key]: msg }));
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) {
+    e?.preventDefault();
+
+    // Touch and validate every tracked field at once
+    const allTouched = {};
+    const newErrors  = {};
+    Object.keys(VALIDATORS).forEach((key) => {
+      allTouched[key] = true;
+      const msg = VALIDATORS[key](formData[key], isEdit);
+      if (msg) newErrors[key] = msg;
+    });
+    setTouched(allTouched);
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
       toast.error("Please fill all required fields correctly.");
+      // Scroll to first error
+      const firstKey = Object.keys(VALIDATORS).find((k) => newErrors[k]);
+      if (firstKey) {
+        document.querySelector(`[data-field="${firstKey}"]`)?.scrollIntoView({
+          behavior: "smooth", block: "center",
+        });
+      }
       return;
     }
+
     setIsSaving(true);
     await onSave(formData);
     setIsSaving(false);
   };
 
-  const field = (f) => `w-full bg-white border ${errors[f] ? "border-red-400 shadow-[0_0_0_2px_rgba(248,113,113,0.2)]" : "border-stone-200 focus:border-amber-500"} rounded-xl px-4 py-3 text-sm outline-none transition-all`;
-  
-  const set = (key, val) => {
-    setFormData((prev) => ({ ...prev, [key]: val }));
-    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: "" }));
+  // Dynamic border class — red for error, green for success, amber on focus otherwise
+  const fieldCls = (key, extra = "") => {
+    const hasErr     = touched[key] && errors[key];
+    const hasSuccess = touched[key] && !errors[key] && formData[key] !== "" && formData[key] !== undefined;
+    return [
+      "w-full bg-white border rounded-xl px-4 py-3 text-sm outline-none transition-all",
+      extra,
+      hasErr     ? "border-red-400 ring-2 ring-red-50 bg-red-50/30"
+      : hasSuccess ? "border-emerald-400 ring-2 ring-emerald-50"
+      : "border-stone-200 focus:border-amber-500",
+    ].join(" ");
+  };
+
+  // Inline feedback message — only renders after field is touched
+  const FieldMsg = ({ fieldKey }) => {
+    if (!touched[fieldKey]) return null;
+    if (errors[fieldKey]) return (
+      <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight flex items-center gap-1 mt-1">
+        <span>!</span> {errors[fieldKey]}
+      </p>
+    );
+    if (formData[fieldKey] !== "" && formData[fieldKey] !== undefined) return (
+      <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight flex items-center gap-1 mt-1">
+        <span>✓</span> Looks good
+      </p>
+    );
+    return null;
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-stone-50 rounded-[2rem] w-full max-w-5xl shadow-2xl border border-stone-200 overflow-hidden max-h-[95vh] flex flex-col">
-        
+
         {/* Header */}
         <div className="px-8 py-6 border-b border-stone-200 bg-white flex items-center justify-between shrink-0">
           <div>
             <h2 className="font-serif text-2xl font-bold text-stone-900">
-              {product ? "Edit Specifications" : "New Material Entry"}
+              {isEdit ? "Edit Specifications" : "New Material Entry"}
             </h2>
-            <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-1">Architectural Database</p>
+            <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-1">
+              Architectural Database
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 text-stone-400 hover:text-stone-900 bg-stone-100 rounded-full transition-colors"><X size={20}/></button>
+          <button
+            onClick={onClose}
+            className="p-2 text-stone-400 hover:text-stone-900 bg-stone-100 rounded-full transition-colors"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-10">
-          
-          {/* Section 1: Identification */}
+
+          {/* ── Section 1: Identification & Media ── */}
           <div className="space-y-6">
-            <h3 className="text-xs font-black uppercase text-amber-700 tracking-[0.2em] border-b border-stone-200 pb-2">1. Identification & Media</h3>
+            <h3 className="text-xs font-black uppercase text-amber-700 tracking-[0.2em] border-b border-stone-200 pb-2">
+              1. Identification & Media
+            </h3>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Material Name *</label>
-                    <input type="text" className={field("name")} value={formData.name} onChange={(e) => set("name", e.target.value)} disabled={!!product} />
+
+                  {/* Name */}
+                  <div className="space-y-1" data-field="name">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                      Material Name {!isEdit && <span className="text-red-400">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      className={fieldCls("name")}
+                      value={formData.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      onBlur={() => handleBlur("name")}
+                      disabled={isEdit}
+                    />
+                    {!isEdit && <FieldMsg fieldKey="name" />}
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">SKU Code *</label>
-                    <input type="text" className={`${field("sku")} font-mono uppercase`} value={formData.sku} onChange={(e) => set("sku", e.target.value.toUpperCase())} disabled={!!product} />
+
+                  {/* SKU */}
+                  <div className="space-y-1" data-field="sku">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                      SKU Code {!isEdit && <span className="text-red-400">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      className={fieldCls("sku", "font-mono uppercase")}
+                      value={formData.sku}
+                      onChange={(e) => set("sku", e.target.value.toUpperCase())}
+                      onBlur={() => handleBlur("sku")}
+                      disabled={isEdit}
+                    />
+                    {!isEdit && <FieldMsg fieldKey="sku" />}
                   </div>
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Sub-Category *</label>
-                    <select className={field("subCategoryId")} value={formData.subCategoryId} onChange={(e) => set("subCategoryId", e.target.value)}>
+
+                  {/* Sub-category */}
+                  <div className="space-y-1" data-field="subCategoryId">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                      Sub-Category <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      className={fieldCls("subCategoryId")}
+                      value={formData.subCategoryId}
+                      onChange={(e) => set("subCategoryId", e.target.value)}
+                      onBlur={() => handleBlur("subCategoryId")}
+                    >
                       <option value="">Select Category</option>
-                      {subCategories.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                      {subCategories.map((s) => (
+                        <option key={s._id} value={s._id}>{s.name}</option>
+                      ))}
                     </select>
+                    <FieldMsg fieldKey="subCategoryId" />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Material Family *</label>
-                    <input type="text" placeholder="e.g. Hardwood, Vinyl" className={field("materialType")} value={formData.materialType} onChange={(e) => set("materialType", e.target.value)} />
+
+                  {/* Material type */}
+                  <div className="space-y-1" data-field="materialType">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                      Material Family <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Hardwood, Vinyl"
+                      className={fieldCls("materialType")}
+                      value={formData.materialType}
+                      onChange={(e) => set("materialType", e.target.value)}
+                      onBlur={() => handleBlur("materialType")}
+                    />
+                    <FieldMsg fieldKey="materialType" />
                   </div>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                 <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Primary Image URL *</label>
-                 <input type="text" className={field("image")} placeholder="https://..." value={formData.image} onChange={(e) => set("image", e.target.value)} />
-                 <div className="h-24 w-full mt-2 rounded-xl border border-stone-200 bg-white flex items-center justify-center overflow-hidden">
-                  {formData.image ? <img src={formData.image} className="w-full h-full object-cover" alt="Preview" /> : <ImageIcon size={24} className="text-stone-300" />}
-                 </div>
+
+              {/* Image URL + preview */}
+              <div className="space-y-1" data-field="image">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                  Primary Image URL <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  className={fieldCls("image")}
+                  placeholder="https://..."
+                  value={formData.image}
+                  onChange={(e) => set("image", e.target.value)}
+                  onBlur={() => handleBlur("image")}
+                />
+                <FieldMsg fieldKey="image" />
+                <div className="h-24 w-full mt-1 rounded-xl border border-stone-200 bg-white flex items-center justify-center overflow-hidden">
+                  {formData.image && !errors.image
+                    ? <img src={formData.image} className="w-full h-full object-cover" alt="Preview" />
+                    : <ImageIcon size={24} className="text-stone-300" />}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Section 2: Financials & Logistics */}
+          {/* ── Section 2: Financials & Inventory ── */}
           <div className="space-y-6">
-            <h3 className="text-xs font-black uppercase text-amber-700 tracking-[0.2em] border-b border-stone-200 pb-2">2. Financials & Inventory</h3>
+            <h3 className="text-xs font-black uppercase text-amber-700 tracking-[0.2em] border-b border-stone-200 pb-2">
+              2. Financials & Inventory
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Price *</label>
+
+              {/* Price */}
+              <div className="space-y-1" data-field="price">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                  Price <span className="text-red-400">*</span>
+                </label>
                 <div className="relative">
-                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={14}/>
-                  <input type="number" className={`pl-8 ${field("price")}`} value={formData.price} onChange={(e) => set("price", e.target.value)} />
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={14} />
+                  <input
+                    type="number"
+                    className={fieldCls("price", "pl-8")}
+                    value={formData.price}
+                    onChange={(e) => set("price", e.target.value)}
+                    onBlur={() => handleBlur("price")}
+                  />
                 </div>
+                <FieldMsg fieldKey="price" />
               </div>
-              <div className="space-y-1.5">
+
+              {/* Unit — no validation needed */}
+              <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Base Unit</label>
-                <select className={field()} value={formData.unit} onChange={(e) => set("unit", e.target.value)}>
+                <select
+                  className="w-full bg-white border border-stone-200 focus:border-amber-500 rounded-xl px-4 py-3 text-sm outline-none transition-all"
+                  value={formData.unit}
+                  onChange={(e) => set("unit", e.target.value)}
+                >
                   <option value="sqft">Sq. Ft.</option>
                   <option value="box">Box</option>
                   <option value="plank">Plank</option>
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Price/Box</label>
-                <input type="number" className={field()} value={formData.pricePerBox} onChange={(e) => set("pricePerBox", e.target.value)} />
+
+              {/* Price per box */}
+              <div className="space-y-1" data-field="pricePerBox">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                  Price/Box <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  className={fieldCls("pricePerBox")}
+                  value={formData.pricePerBox}
+                  onChange={(e) => set("pricePerBox", e.target.value)}
+                  onBlur={() => handleBlur("pricePerBox")}
+                />
+                <FieldMsg fieldKey="pricePerBox" />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Current Stock *</label>
-                <input type="number" className={field("stock")} value={formData.stock} onChange={(e) => set("stock", e.target.value)} />
+              {/* Stock */}
+              <div className="space-y-1" data-field="stock">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                  Current Stock <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  className={fieldCls("stock")}
+                  value={formData.stock}
+                  onChange={(e) => set("stock", e.target.value)}
+                  onBlur={() => handleBlur("stock")}
+                />
+                <FieldMsg fieldKey="stock" />
               </div>
             </div>
           </div>
 
-          {/* Section 3: Physical & Technical Specs */}
+          {/* ── Section 3: Technical Specifications ── */}
           <div className="space-y-6">
-            <h3 className="text-xs font-black uppercase text-amber-700 tracking-[0.2em] border-b border-stone-200 pb-2">3. Technical Specifications</h3>
+            <h3 className="text-xs font-black uppercase text-amber-700 tracking-[0.2em] border-b border-stone-200 pb-2">
+              3. Technical Specifications
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Wood Species</label>
-                <input type="text" className={field()} value={formData.woodType} onChange={(e) => set("woodType", e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Specific Color</label>
-                <input type="text" className={field()} value={formData.color} onChange={(e) => set("color", e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
+
+              {/* Optional fields — no validation, standard style */}
+              {[
+                { key: "woodType", label: "Wood Species" },
+                { key: "color",    label: "Specific Color" },
+                { key: "finish",   label: "Surface Finish", placeholder: "e.g. Matte" },
+              ].map(({ key, label, placeholder }) => (
+                <div key={key} className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">{label}</label>
+                  <input
+                    type="text"
+                    placeholder={placeholder}
+                    className="w-full bg-white border border-stone-200 focus:border-amber-500 rounded-xl px-4 py-3 text-sm outline-none transition-all"
+                    value={formData[key]}
+                    onChange={(e) => set(key, e.target.value)}
+                  />
+                </div>
+              ))}
+
+              {/* Color family */}
+              <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Color Family</label>
-                <select className={field()} value={formData.colorFamily} onChange={(e) => set("colorFamily", e.target.value)}>
+                <select
+                  className="w-full bg-white border border-stone-200 focus:border-amber-500 rounded-xl px-4 py-3 text-sm outline-none transition-all"
+                  value={formData.colorFamily}
+                  onChange={(e) => set("colorFamily", e.target.value)}
+                >
                   <option value="">Select...</option>
-                  <option value="Light">Light</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Dark">Dark</option>
-                  <option value="Gray">Gray</option>
-                  <option value="Natural">Natural</option>
-                  <option value="White">White</option>
+                  {["Light","Medium","Dark","Gray","Natural","White"].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Surface Finish</label>
-                <input type="text" placeholder="e.g. Matte" className={field()} value={formData.finish} onChange={(e) => set("finish", e.target.value)} />
-              </div>
 
-              <div className="space-y-1.5">
+              {/* Thickness — optional */}
+              <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Thickness (mm)</label>
-                <input type="number" className={field()} value={formData.thicknessMM} onChange={(e) => set("thicknessMM", e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Length (mm)</label>
-                <input type="number" className={field()} value={formData.lengthMM} onChange={(e) => set("lengthMM", e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Width (mm)</label>
-                <input type="number" className={field()} value={formData.widthMM} onChange={(e) => set("widthMM", e.target.value)} />
+                <input
+                  type="number"
+                  className="w-full bg-white border border-stone-200 focus:border-amber-500 rounded-xl px-4 py-3 text-sm outline-none transition-all"
+                  value={formData.thicknessMM}
+                  onChange={(e) => set("thicknessMM", e.target.value)}
+                />
               </div>
 
-              <div className="space-y-1.5">
+              {/* Length — validated */}
+              <div className="space-y-1" data-field="lengthMM">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                  Length (mm) <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  className={fieldCls("lengthMM")}
+                  value={formData.lengthMM}
+                  onChange={(e) => set("lengthMM", e.target.value)}
+                  onBlur={() => handleBlur("lengthMM")}
+                />
+                <FieldMsg fieldKey="lengthMM" />
+              </div>
+
+              {/* Width — validated */}
+              <div className="space-y-1" data-field="widthMM">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
+                  Width (mm) <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  className={fieldCls("widthMM")}
+                  value={formData.widthMM}
+                  onChange={(e) => set("widthMM", e.target.value)}
+                  onBlur={() => handleBlur("widthMM")}
+                />
+                <FieldMsg fieldKey="widthMM" />
+              </div>
+
+              {/* Water resistance */}
+              <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Water Resistance</label>
-                <select className={field()} value={formData.waterResistance} onChange={(e) => set("waterResistance", e.target.value)}>
+                <select
+                  className="w-full bg-white border border-stone-200 focus:border-amber-500 rounded-xl px-4 py-3 text-sm outline-none transition-all"
+                  value={formData.waterResistance}
+                  onChange={(e) => set("waterResistance", e.target.value)}
+                >
                   <option value="Not-resistant">Not-resistant</option>
                   <option value="Water-resistant">Water-resistant</option>
                   <option value="Waterproof">Waterproof</option>
                 </select>
               </div>
-             
             </div>
           </div>
 
-          {/* Section 4: Extra & Description */}
+          {/* ── Section 4: Visibility & Description ── */}
           <div className="space-y-6">
-            <h3 className="text-xs font-black uppercase text-amber-700 tracking-[0.2em] border-b border-stone-200 pb-2">4. Visibility & Description</h3>
+            <h3 className="text-xs font-black uppercase text-amber-700 tracking-[0.2em] border-b border-stone-200 pb-2">
+              4. Visibility & Description
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="md:col-span-3 space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Rich Description *</label>
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Rich Description</label>
                 <textarea
                   className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-sm h-24 resize-none outline-none focus:border-amber-500 transition-all shadow-inner"
                   value={formData.description}
@@ -448,26 +664,39 @@ const ProductModal = ({ onClose, onSave, product }) => {
               <div className="space-y-6">
                 <div className="space-y-1.5">
                   <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Catalog Status</label>
-                  <select className={field()} value={formData.isActive} onChange={(e) => set("isActive", e.target.value)}>
+                  <select
+                    className="w-full bg-white border border-stone-200 focus:border-amber-500 rounded-xl px-4 py-3 text-sm outline-none transition-all"
+                    value={formData.isActive}
+                    onChange={(e) => set("isActive", e.target.value)}
+                  >
                     <option value="active">Active (Visible)</option>
                     <option value="inactive">Disabled (Hidden)</option>
                   </select>
                 </div>
-                
               </div>
             </div>
           </div>
-          
+
         </form>
 
         {/* Footer */}
         <div className="px-8 py-5 border-t border-stone-200 bg-white flex justify-end gap-3 shrink-0">
-            <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500 hover:bg-stone-50 transition-all">
-              Cancel
-            </button>
-            <button onClick={handleSubmit} disabled={isSaving} className="px-8 py-3 rounded-xl bg-stone-900 text-amber-500 text-[10px] font-bold uppercase tracking-widest hover:bg-stone-800 transition-all shadow-lg disabled:opacity-60 flex items-center justify-center gap-2">
-              {isSaving ? <Loader2 size={14} className="animate-spin" /> : product ? "Commit Update" : "Log Material"}
-            </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-3 rounded-xl border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500 hover:bg-stone-50 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isSaving}
+            className="px-8 py-3 rounded-xl bg-stone-900 text-amber-500 text-[10px] font-bold uppercase tracking-widest hover:bg-stone-800 transition-all shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {isSaving
+              ? <Loader2 size={14} className="animate-spin" />
+              : isEdit ? "Commit Update" : "Log Material"}
+          </button>
         </div>
       </div>
     </div>

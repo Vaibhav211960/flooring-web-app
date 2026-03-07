@@ -16,40 +16,6 @@ export default function Footer() {
     <footer className="bg-stone-50 border-t border-stone-200">
       <div className="container max-w-7xl mx-auto px-6 py-16">
 
-        {/* ── Top: Newsletter + Trust Badge ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 pb-14 border-b border-stone-200">
-          <div className="lg:col-span-2">
-            <h3 className="font-serif text-2xl font-semibold text-stone-900 mb-2">
-              Stay in the Loop
-            </h3>
-            <p className="text-stone-500 text-sm mb-6 max-w-md">
-              Get flooring tips, design ideas, and exclusive offers in your inbox.
-            </p>
-            <div className="flex max-w-md gap-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 h-12 px-4 rounded-xl border border-stone-200 focus:outline-none focus:border-amber-500 transition-all bg-white text-sm"
-              />
-              <button className="bg-stone-900 text-white px-5 h-12 rounded-xl hover:bg-amber-700 transition-colors flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-[10px]">
-                Subscribe <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-col justify-center gap-3 bg-amber-50 p-6 rounded-xl border border-amber-100">
-            <div className="flex items-center gap-3 text-amber-900">
-              <ShieldCheck className="w-5 h-5" />
-              <span className="font-semibold text-sm">
-                Industry Certified Quality
-              </span>
-            </div>
-            <p className="text-xs text-stone-500 leading-relaxed">
-              All products meet rigorous durability standards and come with full
-              manufacturer warranties.
-            </p>
-          </div>
-        </div>
-
         {/* ── Main Grid ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 pt-14">
 

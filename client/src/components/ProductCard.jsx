@@ -12,7 +12,7 @@ const ProductCard = ({ product }) => {
         <div className="relative overflow-hidden aspect-[4/3]">
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent z-10" />
           <img
-            src={product.image}
+            src={product.image[1] || product.image[0] || "https://directflooringonline.co.uk/wp-content/uploads/2024/02/Habitat-Oak-Glue-Down-LVT-Flooring-Bedroom-1.jpg"}
             alt={product.name}
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             loading="lazy"

@@ -7,22 +7,64 @@ import Footer from "../components/Footer";
 import { useToast } from "../hooks/useToast";
 import { getDiscountData, getDeliveryCharge } from "../pages/Cart";
 
+// ── Validation rules (identical to BuyAll) ─────────────────────────────────
+const VALIDATORS = {
+  fullName: (v) => {
+    if (!v.trim()) return "Full name is required";
+    if (v.trim().length < 3) return "Name must be at least 3 characters";
+    if (v.trim().length > 60) return "Name must be under 60 characters";
+    if (!/^[a-zA-Z\s.'-]+$/.test(v.trim())) return "Name must contain only letters";
+    return "";
+  },
+  contact: (v) => {
+    const digits = v.replace(/\D/g, "");
+    if (!digits) return "Contact number is required";
+    if (!/^[6-9]\d{9}$/.test(digits)) return "Enter a valid 10-digit Indian mobile number";
+    return "";
+  },
+  pincode: (v) => {
+    if (!v.trim()) return "Pincode is required";
+    if (!/^\d{6}$/.test(v.trim())) return "Enter a valid 6-digit pincode";
+    if (/^0{6}$/.test(v.trim())) return "Enter a valid pincode";
+    return "";
+  },
+  landmark: () => "",
+  address: (v) => {
+    if (!v.trim()) return "Delivery address is required";
+    if (v.trim().length < 15) return "Please enter a more complete address (min 15 chars)";
+    if (v.trim().length > 300) return "Address is too long (max 300 chars)";
+    return "";
+  },
+};
+
+const validateAll = (form) =>
+  Object.fromEntries(Object.entries(VALIDATORS).map(([k, fn]) => [k, fn(form[k])]));
+
+const hasErrors = (errs) => Object.values(errs).some(Boolean);
+
 export default function BuyNow() {
-  const { id }      = useParams();
-  const navigate    = useNavigate();
-  const { toast }   = useToast();
-  const location    = useLocation();
+  const { id }     = useParams();
+  const navigate   = useNavigate();
+  const { toast }  = useToast();
+  const location   = useLocation();
 
   const initialQty = location.state?.quantity || 1;
 
-  const [product,       setProduct]       = useState(null);
-  const [loading,       setLoading]       = useState(true);
+  const [product,        setProduct]        = useState(null);
+  const [loading,        setLoading]        = useState(true);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const [formErrors,    setFormErrors]    = useState({});
-  const [units,         setUnits]         = useState(initialQty);
-  const [form,          setForm]          = useState({
+  const [units,          setUnits]          = useState(initialQty);
+  const [touched,        setTouched]        = useState({});
+
+  const [form, setForm] = useState({
     fullName: "", contact: "", pincode: "", landmark: "", address: "",
   });
+
+  const allErrors     = useMemo(() => validateAll(form), [form]);
+  const visibleErrors = Object.fromEntries(
+    Object.entries(allErrors).map(([k, v]) => [k, touched[k] ? v : ""])
+  );
+  const formIsValid = !hasErrors(allErrors);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -38,14 +80,13 @@ export default function BuyNow() {
     fetchProduct();
   }, [id]);
 
-  // ── Financials (shared logic) ──────────────────────────────────────────────
+  // ── Financials ─────────────────────────────────────────────────────────────
   const financialData = useMemo(() => {
-    const subtotal       = (product?.price || 0) * units;
-    const discount       = getDiscountData(subtotal);
-    const delivery       = getDeliveryCharge(units);          // units = qty for single-product buy
-    const netBill        = subtotal - discount.amt + delivery;
+    const subtotal = (product?.price || 0) * units;
+    const discount = getDiscountData(subtotal);
+    const delivery = getDeliveryCharge(units);
+    const netBill  = subtotal - discount.amt + delivery;
 
-    // Next discount tier hint
     let nextTierAmount = 0;
     if (subtotal < 5000)       nextTierAmount = 5000  - subtotal;
     else if (subtotal < 10000) nextTierAmount = 10000 - subtotal;
@@ -60,39 +101,38 @@ export default function BuyNow() {
     };
   }, [units, product]);
 
-  // ── Form Validation ────────────────────────────────────────────────────────
-  const validate = (name, value) => {
-    switch (name) {
-      case "fullName": return value.trim().length < 3 ? "Name is too short" : "";
-      case "contact":  return /^[6-9]\d{9}$/.test(value) ? "" : "Invalid mobile number";
-      case "pincode":  return /^\d{6}$/.test(value) ? "" : "Invalid 6-digit pincode";
-      case "address":  return value.trim().length < 10 ? "Full address required" : "";
-      default:         return "";
-    }
-  };
-
+  // ── Form handlers ──────────────────────────────────────────────────────────
   const handleInput = (e) => {
     const { name, value } = e.target;
-    if ((name === "pincode" || name === "contact") && value !== "" && !/^\d+$/.test(value)) return;
-    if (name === "pincode" && value.length > 6)  return;
-    if (name === "contact" && value.length > 10) return;
-    setForm(prev => ({ ...prev, [name]: value }));
-    if (name !== "landmark") setFormErrors(prev => ({ ...prev, [name]: validate(name, value) }));
+    let formatted = value;
+    if (name === "contact") formatted = value.replace(/\D/g, "").slice(0, 10);
+    if (name === "pincode") formatted = value.replace(/\D/g, "").slice(0, 6);
+    setForm((prev) => ({ ...prev, [name]: formatted }));
+    setTouched((prev) => ({ ...prev, [name]: true }));
+  };
+
+  const handleBlur = (e) => {
+    setTouched((prev) => ({ ...prev, [e.target.name]: true }));
   };
 
   const handleGoToPayment = async () => {
-    const errs = {};
-    Object.keys(form).forEach(key => {
-      if (key !== "landmark") {
-        const error = validate(key, form[key]);
-        if (error) errs[key] = error;
+    setTouched({ fullName: true, contact: true, pincode: true, landmark: true, address: true });
+
+    if (hasErrors(allErrors)) {
+      toast({
+        title: "Shipping Error",
+        description: "Please correct the errors in your address.",
+        variant: "destructive",
+      });
+      const firstErrorKey = Object.entries(allErrors).find(([, v]) => v)?.[0];
+      if (firstErrorKey) {
+        document.querySelector(`[name="${firstErrorKey}"]`)?.scrollIntoView({
+          behavior: "smooth", block: "center",
+        });
       }
-    });
-    if (Object.keys(errs).length > 0) {
-      setFormErrors(errs);
-      toast({ title: "Shipping Error", description: "Please correct the errors in your address.", variant: "destructive" });
       return;
     }
+
     setIsPlacingOrder(true);
     const checkoutData = {
       items: [{
@@ -150,30 +190,115 @@ export default function BuyNow() {
 
             {/* Shipping Form */}
             <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-stone-100 flex items-center gap-3">
-                <Truck className="text-stone-400" size={16} />
-                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700">
-                  Shipping Details
-                </p>
+              <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Truck className="text-stone-400" size={16} />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700">
+                    Shipping Details
+                  </p>
+                </div>
+                {/* Live completion indicator */}
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    {["fullName", "contact", "pincode", "address"].map((field) => (
+                      <div
+                        key={field}
+                        className={`h-1 w-5 rounded-full transition-all duration-300 ${
+                          !allErrors[field] && form[field] ? "bg-emerald-400" : "bg-stone-200"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-stone-400">
+                    {["fullName", "contact", "pincode", "address"].filter(
+                      (f) => !allErrors[f] && form[f]
+                    ).length}/4
+                  </span>
+                </div>
               </div>
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-                <InputField label="Full Name"           name="fullName" value={form.fullName} onChange={handleInput} error={formErrors.fullName} />
-                <InputField label="Mobile Number"       name="contact"  value={form.contact}  onChange={handleInput} error={formErrors.contact} />
-                <InputField label="Pincode"             name="pincode"  value={form.pincode}  onChange={handleInput} error={formErrors.pincode} />
-                <InputField label="Landmark (Optional)" name="landmark" value={form.landmark} onChange={handleInput} />
+                <InputField
+                  label="Full Name"
+                  name="fullName"
+                  value={form.fullName}
+                  onChange={handleInput}
+                  onBlur={handleBlur}
+                  error={visibleErrors.fullName}
+                  success={touched.fullName && !allErrors.fullName}
+                  placeholder="As on ID proof"
+                />
+                <InputField
+                  label="Mobile Number"
+                  name="contact"
+                  value={form.contact}
+                  onChange={handleInput}
+                  onBlur={handleBlur}
+                  error={visibleErrors.contact}
+                  success={touched.contact && !allErrors.contact}
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
+                  inputMode="numeric"
+                />
+                <InputField
+                  label="Pincode"
+                  name="pincode"
+                  value={form.pincode}
+                  onChange={handleInput}
+                  onBlur={handleBlur}
+                  error={visibleErrors.pincode}
+                  success={touched.pincode && !allErrors.pincode}
+                  placeholder="6-digit postal code"
+                  maxLength={6}
+                  inputMode="numeric"
+                />
+                <InputField
+                  label="Landmark (Optional)"
+                  name="landmark"
+                  value={form.landmark}
+                  onChange={handleInput}
+                  onBlur={handleBlur}
+                  placeholder="Near school, temple…"
+                  isOptional
+                />
+
+                {/* Address textarea */}
                 <div className="md:col-span-2 space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Full Address</label>
-                  <textarea
-                    name="address"
-                    rows="3"
-                    value={form.address}
-                    onChange={handleInput}
-                    className={`w-full p-4 rounded-xl border text-sm outline-none transition-all resize-none ${
-                      formErrors.address ? "border-red-400 bg-red-50/30" : "border-stone-200 bg-stone-50 focus:border-amber-500"
-                    }`}
-                  />
-                  {formErrors.address && (
-                    <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight">! {formErrors.address}</p>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                    Full Address <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      name="address"
+                      rows="3"
+                      value={form.address}
+                      onChange={handleInput}
+                      onBlur={handleBlur}
+                      maxLength={300}
+                      className={`w-full rounded-xl border p-4 text-sm outline-none transition-all resize-none ${
+                        visibleErrors.address
+                          ? "border-red-400 ring-2 ring-red-50 bg-red-50/30"
+                          : touched.address && !allErrors.address
+                          ? "border-emerald-400 ring-2 ring-emerald-50"
+                          : "border-stone-200 bg-stone-50 focus:border-amber-500"
+                      }`}
+                      placeholder="House/Flat no., Street, Area, City, State…"
+                    />
+                    <span className="absolute bottom-3 right-3 text-[9px] text-stone-400 font-bold">
+                      {form.address.length}/300
+                    </span>
+                  </div>
+                  {visibleErrors.address ? (
+                    <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight flex items-center gap-1">
+                      <span>!</span> {visibleErrors.address}
+                    </p>
+                  ) : touched.address && !allErrors.address ? (
+                    <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight flex items-center gap-1">
+                      <span></span>
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-stone-400 tracking-wide">
+                      Minimum 15 characters · Be specific for accurate delivery
+                    </p>
                   )}
                 </div>
               </div>
@@ -249,7 +374,6 @@ export default function BuyNow() {
                   </span>
                 </div>
 
-                {/* Tier unlock hint */}
                 {financialData.nextTierAmount > 0 && (
                   <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl">
                     <div className="flex items-center gap-1.5 text-amber-800 font-bold text-[9px] uppercase mb-1">
@@ -272,27 +396,22 @@ export default function BuyNow() {
               <button
                 onClick={handleGoToPayment}
                 disabled={isPlacingOrder}
-                className="w-full h-12 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold uppercase tracking-widest text-[11px] transition-all active:scale-95 shadow-md disabled:opacity-60"
+                className={`w-full h-12 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-all active:scale-95 shadow-md disabled:opacity-60 ${
+                  formIsValid && Object.keys(touched).length >= 4
+                    ? "bg-amber-600 hover:bg-amber-500 text-white shadow-amber-200"
+                    : "bg-stone-900 hover:bg-stone-800 text-white"
+                }`}
               >
                 {isPlacingOrder
                   ? <Loader2 className="animate-spin h-4 w-4 mx-auto" />
                   : "Proceed to Payment"}
               </button>
 
-              {/* Delivery rate card */}
-              <div className="mt-5 pt-5 border-t border-stone-100 space-y-1.5">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400 mb-2">Delivery Rates</p>
-                {[
-                  { label: "Under 50 units",  rate: "₹299" },
-                  { label: "50 – 99 units",   rate: "₹699" },
-                  { label: "100+ units",       rate: "₹899" },
-                ].map((row) => (
-                  <div key={row.label} className="flex justify-between text-[10px] text-stone-400 font-bold uppercase tracking-wider">
-                    <span>{row.label}</span>
-                    <span className={financialData.deliveryCharge === parseInt(row.rate.replace("₹","")) ? "text-amber-700" : ""}>{row.rate}</span>
-                  </div>
-                ))}
-              </div>
+              {!formIsValid && Object.keys(touched).length > 0 && (
+                <p className="mt-3 text-center text-[9px] text-red-500 font-bold uppercase tracking-widest">
+                  Please fix errors above to continue
+                </p>
+              )}
 
               <div className="mt-4 flex items-center justify-center gap-2 text-[9px] text-stone-400 uppercase tracking-widest font-bold border-t border-stone-100 pt-4">
                 <ShieldCheck size={13} className="text-emerald-500" /> Verified Secure Checkout
@@ -307,17 +426,33 @@ export default function BuyNow() {
   );
 }
 
-function InputField({ label, error, ...props }) {
+// ── InputField — identical to BuyAll ───────────────────────────────────────
+function InputField({ label, error, success, isOptional, ...props }) {
+  const borderClass = error
+    ? "border-red-400 ring-2 ring-red-50 bg-red-50/30"
+    : success
+    ? "border-emerald-400 ring-2 ring-emerald-50"
+    : "border-stone-200 bg-stone-50 focus:border-amber-500";
+
   return (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">{label}</label>
+      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+        {label}
+        {!isOptional && <span className="text-red-400 ml-1">*</span>}
+      </label>
       <input
         {...props}
-        className={`w-full h-12 px-4 bg-stone-50 border rounded-xl text-sm outline-none transition-all ${
-          error ? "border-red-400 ring-2 ring-red-50" : "border-stone-200 focus:border-amber-500"
-        }`}
+        className={`w-full h-12 px-4 border rounded-xl text-sm outline-none transition-all ${borderClass}`}
       />
-      {error && <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight">! {error}</p>}
+      {error ? (
+        <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight flex items-center gap-1">
+          <span>!</span> {error}
+        </p>
+      ) : success ? (
+        <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight flex items-center gap-1">
+          <span></span>
+        </p>
+      ) : null}
     </div>
   );
 }

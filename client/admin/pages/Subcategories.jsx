@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Plus, Edit3, Trash2, GitCommit, Link as LinkIcon, ImageIcon, AlignLeft, Layers, Globe, Loader2, Type } from "lucide-react";
+import {
+  Plus, Edit3, Trash2, GitCommit, Link as LinkIcon,
+  ImageIcon, AlignLeft, Loader2,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 
 const SubCategories = () => {
-  const [subCategories, setSubCategories] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSubCategory, setEditingSubCategory] = useState(null);
+  const [subCategories,       setSubCategories]       = useState([]);
+  const [isLoading,           setIsLoading]           = useState(true);
+  const [isModalOpen,         setIsModalOpen]         = useState(false);
+  const [editingSubCategory,  setEditingSubCategory]  = useState(null);
 
   const fetchSubCategories = async () => {
     try {
@@ -17,26 +20,20 @@ const SubCategories = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSubCategories(res.data.subCategories);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load sub-categories.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchSubCategories();
-  }, []);
+  useEffect(() => { fetchSubCategories(); }, []);
 
-  const openAddModal = () => {
-    setEditingSubCategory(null);
-    setIsModalOpen(true);
-  };
-
+  const openAddModal  = () => { setEditingSubCategory(null); setIsModalOpen(true); };
   const openEditModal = (sc) => {
     setEditingSubCategory({
       ...sc,
-      imageUrl: sc.image,
+      imageUrl:   sc.image,
       categoryId: sc.categoryId?._id || sc.categoryId,
     });
     setIsModalOpen(true);
@@ -46,11 +43,11 @@ const SubCategories = () => {
     try {
       const token = localStorage.getItem("adminToken");
       const payload = {
-        categoryId: data.categoryId,
-        name: data.name,
+        categoryId:  data.categoryId,
+        name:        data.name,
         description: data.description,
-        image: data.imageUrl,
-        status: data.isActive || "active",
+        image:       data.imageUrl,
+        status:      data.isActive || "active",
       };
 
       if (editingSubCategory) {
@@ -155,11 +152,9 @@ const SubCategories = () => {
                 <tr key={sc._id} className="hover:bg-stone-50/50 transition-colors group">
                   <td className="p-5">
                     <div className="h-12 w-16 rounded-lg overflow-hidden border border-stone-200 bg-stone-100 flex items-center justify-center">
-                      {sc.image ? (
-                        <img src={sc.image} alt={sc.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <ImageIcon size={16} className="text-stone-300" />
-                      )}
+                      {sc.image
+                        ? <img src={sc.image} alt={sc.name} className="w-full h-full object-cover" />
+                        : <ImageIcon size={16} className="text-stone-300" />}
                     </div>
                   </td>
                   <td className="p-5">
@@ -175,30 +170,20 @@ const SubCategories = () => {
                     </span>
                   </td>
                   <td className="p-5">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-                        sc.isActive === false
-                          ? "bg-stone-100 text-stone-400 border-stone-200"
-                          : "bg-emerald-50 text-emerald-700 border-emerald-100"
-                      }`}
-                    >
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
+                      sc.isActive === false
+                        ? "bg-stone-100 text-stone-400 border-stone-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-100"
+                    }`}>
                       {sc.isActive === false ? "inactive" : "active"}
                     </span>
                   </td>
                   <td className="p-5">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => openEditModal(sc)}
-                        className="p-2 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-all"
-                        title="Edit"
-                      >
+                      <button onClick={() => openEditModal(sc)} className="p-2 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-all" title="Edit">
                         <Edit3 size={16} />
                       </button>
-                      <button
-                        onClick={() => deleteSubCategory(sc._id)}
-                        className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                        title="Delete"
-                      >
+                      <button onClick={() => deleteSubCategory(sc._id)} className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -221,12 +206,21 @@ const SubCategories = () => {
   );
 };
 
-// --- Modal ---
+// ── Modal ───────────────────────────────────────────────────────────────────
+const SC_VALIDATORS = {
+  name:       (v) => (!v.trim() ? "Name is required" : v.trim().length < 2 ? "Name too short" : ""),
+  categoryId: (v) => (!v ? "Parent category is required" : ""),
+  imageUrl:   (v) => (v && !v.startsWith("http") ? "Must be a valid URL starting with http" : ""),
+  description: () => "",
+  status:      () => "",
+};
+
 const SubCategoryModal = ({ onClose, onSave, subCategory }) => {
   const [categories, setCategories] = useState([]);
-  const [errors, setErrors] = useState({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState(
+  const [errors,     setErrors]     = useState({});
+  const [touched,    setTouched]    = useState({});
+  const [isSaving,   setIsSaving]   = useState(false);
+  const [formData,   setFormData]   = useState(
     subCategory || { name: "", categoryId: "", status: "active", description: "", imageUrl: "" }
   );
 
@@ -245,22 +239,64 @@ const SubCategoryModal = ({ onClose, onSave, subCategory }) => {
     fetchCats();
   }, []);
 
-  const validate = () => {
-    const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Name is required";
-    if (!formData.categoryId) newErrors.categoryId = "Parent category is required";
-    if (formData.imageUrl && !formData.imageUrl.startsWith("http"))
-      newErrors.imageUrl = "Must be a valid URL starting with http";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleChange = (key, value) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    const fieldErr = SC_VALIDATORS[key]?.(value) || "";
+    setErrors((prev) => ({ ...prev, [key]: fieldErr }));
+  };
+
+  const handleBlur = (key) => {
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    const fieldErr = SC_VALIDATORS[key]?.(formData[key] || "") || "";
+    setErrors((prev) => ({ ...prev, [key]: fieldErr }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    // Mark all as touched
+    const allTouched = Object.fromEntries(Object.keys(SC_VALIDATORS).map((k) => [k, true]));
+    setTouched(allTouched);
+
+    const newErrors = {};
+    Object.entries(SC_VALIDATORS).forEach(([k, fn]) => {
+      const msg = fn(formData[k] || "");
+      if (msg) newErrors[k] = msg;
+    });
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fix the errors before saving.");
+      return;
+    }
+
     setIsSaving(true);
     await onSave(formData);
     setIsSaving(false);
+  };
+
+  const inputClass = (key) =>
+    `w-full bg-stone-50 border rounded-xl px-4 py-3 text-sm outline-none transition-all ${
+      touched[key] && errors[key]
+        ? "border-red-400 ring-2 ring-red-50 bg-red-50/30"
+        : touched[key] && !errors[key] && formData[key]
+        ? "border-emerald-400 ring-2 ring-emerald-50"
+        : "border-stone-200 focus:border-amber-500"
+    }`;
+
+  const FieldMsg = ({ fieldKey }) => {
+    if (!touched[fieldKey]) return null;
+    if (errors[fieldKey]) return (
+      <p className="text-[10px] text-red-600 font-bold uppercase tracking-tight flex items-center gap-1">
+        <span>!</span> {errors[fieldKey]}
+      </p>
+    );
+    if (formData[fieldKey]) return (
+      <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight flex items-center gap-1">
+        <span>✓</span> Looks good
+      </p>
+    );
+    return null;
   };
 
   return (
@@ -271,12 +307,7 @@ const SubCategoryModal = ({ onClose, onSave, subCategory }) => {
           <h2 className="font-serif text-xl font-bold text-stone-900">
             {subCategory ? "Edit Sub-Category" : "New Sub-Category"}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-stone-400 hover:text-stone-900 text-2xl leading-none transition-colors"
-          >
-            &times;
-          </button>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-900 text-2xl leading-none transition-colors">&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
@@ -285,55 +316,45 @@ const SubCategoryModal = ({ onClose, onSave, subCategory }) => {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
-                  Name
+                  Name <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
-                  className={`w-full bg-stone-50 border ${errors.name ? "border-red-400" : "border-stone-200"} rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all`}
+                  className={inputClass("name")}
                   value={formData.name}
-                  onChange={(e) => {
-                    setFormData({ ...formData, name: e.target.value });
-                    if (errors.name) setErrors({ ...errors, name: "" });
-                  }}
+                  onChange={(e) => handleChange("name", e.target.value)}
+                  onBlur={() => handleBlur("name")}
                 />
-                {errors.name && (
-                  <p className="text-[10px] text-red-500 font-semibold">{errors.name}</p>
-                )}
+                <FieldMsg fieldKey="name" />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
-                  Parent Category
+                  Parent Category <span className="text-red-400">*</span>
                 </label>
                 <select
-                  className={`w-full bg-stone-50 border ${errors.categoryId ? "border-red-400" : "border-stone-200"} rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all`}
+                  className={inputClass("categoryId")}
                   value={formData.categoryId}
-                  onChange={(e) => {
-                    setFormData({ ...formData, categoryId: e.target.value });
-                    if (errors.categoryId) setErrors({ ...errors, categoryId: "" });
-                  }}
+                  onChange={(e) => handleChange("categoryId", e.target.value)}
+                  onBlur={() => handleBlur("categoryId")}
                 >
                   <option value="">Select a category</option>
                   {categories.map((cat) => (
                     <option key={cat._id} value={cat._id}>{cat.name}</option>
                   ))}
                 </select>
-                {errors.categoryId && (
-                  <p className="text-[10px] text-red-500 font-semibold">{errors.categoryId}</p>
-                )}
+                <FieldMsg fieldKey="categoryId" />
               </div>
             </div>
 
             {/* Right */}
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
-                  Status
-                </label>
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Status</label>
                 <select
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all"
+                  className={inputClass("status")}
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  onChange={(e) => handleChange("status", e.target.value)}
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -341,22 +362,22 @@ const SubCategoryModal = ({ onClose, onSave, subCategory }) => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
-                  Image URL
-                </label>
+                <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">Image URL</label>
                 <input
                   type="text"
                   placeholder="https://..."
-                  className={`w-full bg-stone-50 border ${errors.imageUrl ? "border-red-400" : "border-stone-200"} rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all`}
+                  className={inputClass("imageUrl")}
                   value={formData.imageUrl}
-                  onChange={(e) => {
-                    setFormData({ ...formData, imageUrl: e.target.value });
-                    if (errors.imageUrl) setErrors({ ...errors, imageUrl: "" });
-                  }}
+                  onChange={(e) => handleChange("imageUrl", e.target.value)}
+                  onBlur={() => handleBlur("imageUrl")}
                 />
-                {errors.imageUrl && (
-                  <p className="text-[10px] text-red-500 font-semibold">{errors.imageUrl}</p>
+                {/* Live image preview */}
+                {formData.imageUrl && !errors.imageUrl && (
+                  <div className="h-20 w-full rounded-xl border border-stone-200 overflow-hidden mt-1">
+                    <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Preview" />
+                  </div>
                 )}
+                <FieldMsg fieldKey="imageUrl" />
               </div>
             </div>
           </div>
@@ -364,12 +385,12 @@ const SubCategoryModal = ({ onClose, onSave, subCategory }) => {
           {/* Description */}
           <div className="space-y-1.5">
             <label className="text-[10px] uppercase tracking-widest font-bold text-stone-500">
-              Description
+              <AlignLeft size={10} className="inline mr-1" /> Description
             </label>
             <textarea
               className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 h-24 resize-none transition-all"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => handleChange("description", e.target.value)}
             />
           </div>
 
@@ -387,13 +408,7 @@ const SubCategoryModal = ({ onClose, onSave, subCategory }) => {
               disabled={isSaving}
               className="flex-1 px-4 py-3 rounded-xl bg-stone-900 text-amber-500 text-[10px] font-bold uppercase tracking-widest hover:bg-stone-800 transition-all shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              {isSaving ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : subCategory ? (
-                "Save Changes"
-              ) : (
-                "Create Sub-Category"
-              )}
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : subCategory ? "Save Changes" : "Create Sub-Category"}
             </button>
           </div>
         </form>

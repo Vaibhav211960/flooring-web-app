@@ -14,21 +14,47 @@ export const CartProvider = ({ children }) => {
   const API_BASE_URL = "http://localhost:5000/api/cart";
 
   const getAuthHeaders = () => ({
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${localStorage.getItem("UserToken")}` },
   });
 
+  /**
+   * Normalize a raw cart item from the API into a consistent shape.
+   *
+   * The backend returns items like:
+   *   { _id: <cartRowId>, productId: { _id, name, image, price, ... }, price, quantity, total }
+   *
+   * We preserve BOTH ids so downstream pages can use them correctly:
+   *   - cartItemId  → the cart-row _id  (used for remove/update operations)
+   *   - _id         → the product _id   (used in order payloads)
+   *   - productId   → full product object (kept so BuyAll resolver works)
+   */
   const formatCartItems = (items) =>
-    items.map((item) => ({
-      _id: item.productId?._id,
-      name: item.productId?.name,
-      image: item.productId?.image,
-      price: item.price,
-      quantity: item.quantity,
-      total: item.total,
-    }));
+    items.map((item) => {
+      const prod = item.productId || {};
+      const fallbackImage =
+        "https://directflooringonline.co.uk/wp-content/uploads/2024/02/Habitat-Oak-Glue-Down-LVT-Flooring-Bedroom-1.jpg";
+
+      return {
+        // ── IDs ────────────────────────────────────────────────────────────
+        cartItemId: item._id,            // cart-row id for remove/update API calls
+        _id:        prod._id || item._id, // product id for order payloads
+
+        // ── Keep the full productId object so BuyAll resolver can read it ─
+        productId: prod,
+
+        // ── Flat copies for convenient access ─────────────────────────────
+        name:     prod.name  || item.name  || "",
+        image:    Array.isArray(prod.image)
+                    ? (prod.image[0] || fallbackImage)
+                    : (prod.image || item.image || fallbackImage),
+        price:    item.price    ?? prod.price    ?? 0,
+        quantity: item.quantity ?? 1,
+        total:    item.total    ?? (item.price ?? prod.price ?? 0) * (item.quantity ?? 1),
+      };
+    });
 
   const fetchCart = async () => {
-    if (!token) return;
+    if (!localStorage.getItem("UserToken")) return;
     setIsLoading(true);
     try {
       const res = await axios.get(API_BASE_URL, getAuthHeaders());
@@ -43,10 +69,10 @@ export const CartProvider = ({ children }) => {
 
   useEffect(() => {
     fetchCart();
-  }, [token]);
+  }, []);                               // run once on mount; token read fresh in getAuthHeaders
 
   const addToCart = async (product, quantity = 1) => {
-    if (!token) {
+    if (!localStorage.getItem("UserToken")) {
       toast.error("Please sign in to add items to your cart.");
       return;
     }
@@ -64,6 +90,10 @@ export const CartProvider = ({ children }) => {
     }
   };
 
+  /**
+   * removeFromCart accepts the PRODUCT id (item._id after formatting).
+   * The API endpoint path uses it directly.
+   */
   const removeFromCart = async (productId) => {
     try {
       const res = await axios.delete(
@@ -106,9 +136,9 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const getCartItemCount = () => cartItems.reduce((total, item) => total + item.quantity, 0);
-  const isInCart = (productId) => cartItems.some((item) => item._id === productId);
-  const getItemQuantity = (productId) => cartItems.find((item) => item._id === productId)?.quantity || 0;
+  const getCartItemCount  = () => cartItems.reduce((t, item) => t + item.quantity, 0);
+  const isInCart          = (productId) => cartItems.some((item) => item._id === productId);
+  const getItemQuantity   = (productId) => cartItems.find((item) => item._id === productId)?.quantity || 0;
 
   return (
     <CartContext.Provider
