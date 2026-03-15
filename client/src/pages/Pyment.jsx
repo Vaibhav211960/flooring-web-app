@@ -2,15 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
-  CreditCard,
-  Smartphone,
-  Truck,
-  ShieldCheck,
-  Lock,
-  ChevronLeft,
-  Loader2,
-  Home as HomeIcon,
-  ChevronRight,
+  CreditCard, Smartphone, Truck, ShieldCheck,
+  Lock, ChevronLeft, Loader2, Home as HomeIcon, ChevronRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -23,25 +16,32 @@ export default function Payment() {
   const { toast } = useToast();
   const { clearCart } = useCart();
 
+  // ── Determine flow type ONCE on mount ────────────────────────────────────
+  // BuyNow (single product) sets "is_cart_checkout": false
+  // BuyAll  (cart checkout) sets "is_cart_checkout": true
+  // This flag is written by BuyAll/BuyNow before navigating here.
+  const [isCartCheckout] = useState(() => {
+    const data = JSON.parse(localStorage.getItem("checkout_details"));
+    return data?.isCartCheckout === true;
+  });
+
   const [checkoutItems] = useState(() => {
-    const singleData = JSON.parse(localStorage.getItem("checkout_details"));
-    if (singleData && singleData.items) return singleData.items;
-    return JSON.parse(localStorage.getItem("checkout_products")) || [];
+    const data = JSON.parse(localStorage.getItem("checkout_details"));
+    if (data?.items) return data.items;
+    return [];
   });
 
   const [shippingAddress] = useState(() => {
-    const singleData = JSON.parse(localStorage.getItem("checkout_details"));
-    if (singleData && singleData.form) return singleData.form;
-    return JSON.parse(localStorage.getItem("temp_shipping_address")) || null;
+    const data = JSON.parse(localStorage.getItem("checkout_details"));
+    return data?.form || null;
   });
 
   const [netBill] = useState(() => {
-    const singleData = JSON.parse(localStorage.getItem("checkout_details"));
-    if (singleData && singleData.netBill) return singleData.netBill;
-    return checkoutItems.reduce((acc, item) => acc + (item.total || 0), 0);
+    const data = JSON.parse(localStorage.getItem("checkout_details"));
+    return data?.netBill || 0;
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading,   setIsLoading]   = useState(false);
   const [paymentMode, setPaymentMode] = useState("UPI");
 
   useEffect(() => {
@@ -61,18 +61,18 @@ export default function Payment() {
 
       const orderPayload = {
         items: checkoutItems.map((item) => ({
-          productId: item.productId || item._id,
-          productName: item.name || item.productName,
-          pricePerUnit: item.price || item.pricePerUnit,
-          units: item.quantity || item.units,
-          totalAmount: item.total || item.totalAmount,
+          productId:    item.productId  || item._id,
+          productName:  item.productName || item.name || "",
+          pricePerUnit: item.pricePerUnit || item.price || 0,
+          units:        item.units       || item.quantity || 1,
+          totalAmount:  item.totalAmount || item.total   || 0,
         })),
         shippingAddress: {
           fullName: shippingAddress.fullName,
-          address: shippingAddress.address,
-          landmark: shippingAddress.landmark,
-          pincode: shippingAddress.pincode,
-          contact: shippingAddress.contact,
+          address:  shippingAddress.address,
+          landmark: shippingAddress.landmark || "",
+          pincode:  shippingAddress.pincode,
+          contact:  shippingAddress.contact,
         },
         netBill,
         paymentMode,
@@ -94,15 +94,18 @@ export default function Payment() {
           description: "Materials are being prepared for dispatch.",
         });
 
-        const isSingleBuy = localStorage.getItem("checkout_details");
-        if (isSingleBuy) {
-          localStorage.removeItem("checkout_details");
-          localStorage.removeItem("pending_product");
-          localStorage.removeItem("pending_qty");
-        } else {
+        // ── Clean up localStorage ──────────────────────────────────────────
+        localStorage.removeItem("checkout_details");
+
+        if (isCartCheckout) {
+          // Cart flow: also clear the cart on the server
           localStorage.removeItem("checkout_products");
           localStorage.removeItem("temp_shipping_address");
           await clearCart();
+        } else {
+          // Single-buy flow: clear the pending product keys
+          localStorage.removeItem("pending_product");
+          localStorage.removeItem("pending_qty");
         }
 
         navigate(`/orders/${response.data.order._id}`);
@@ -131,9 +134,7 @@ export default function Payment() {
               <HomeIcon className="h-3 w-3" /> Home
             </Link>
             <ChevronRight className="h-3 w-3 text-stone-700" />
-            <Link to="/cart" className="hover:text-white transition-colors">
-              Cart
-            </Link>
+            <Link to="/cart" className="hover:text-white transition-colors">Cart</Link>
             <ChevronRight className="h-3 w-3 text-stone-700" />
             <span className="text-amber-500">Payment</span>
           </nav>
@@ -147,8 +148,7 @@ export default function Payment() {
             Final Step
           </p>
           <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight">
-            Finalize{" "}
-            <span className="italic text-amber-400">Acquisition</span>
+            Finalize <span className="italic text-amber-400">Acquisition</span>
           </h1>
         </div>
       </section>
@@ -219,9 +219,7 @@ export default function Payment() {
             <div className="p-6 space-y-4">
               <div className="flex justify-between text-sm">
                 <span className="text-stone-400">Total Materials</span>
-                <span className="font-bold text-stone-200">
-                  ₹{netBill.toLocaleString()}
-                </span>
+                <span className="font-bold text-stone-200">₹{netBill.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-stone-400">Logistics</span>
@@ -244,11 +242,9 @@ export default function Payment() {
                 disabled={isLoading}
                 className="w-full h-14 bg-amber-600 hover:bg-amber-700 text-white font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {isLoading ? (
-                  <Loader2 className="animate-spin h-4 w-4" />
-                ) : (
-                  `Authorize ₹${netBill.toLocaleString()}`
-                )}
+                {isLoading
+                  ? <Loader2 className="animate-spin h-4 w-4" />
+                  : `Authorize ₹${netBill.toLocaleString()}`}
               </button>
               <div className="mt-4 flex items-center justify-center gap-2 text-[9px] text-stone-500 uppercase tracking-widest">
                 <Lock size={10} /> 256-bit Encrypted Transaction
@@ -274,30 +270,22 @@ function PaymentCard({ id, icon, title, description, selected, onSelect }) {
       }`}
     >
       <div className="flex items-center gap-4">
-        <div
-          className={`p-2 rounded-lg border shadow-sm transition-colors ${
-            selected
-              ? "bg-amber-600 text-white border-amber-600"
-              : "bg-white text-stone-600 border-stone-200"
-          }`}
-        >
+        <div className={`p-2 rounded-lg border shadow-sm transition-colors ${
+          selected
+            ? "bg-amber-600 text-white border-amber-600"
+            : "bg-white text-stone-600 border-stone-200"
+        }`}>
           {icon}
         </div>
         <div>
-          <p className="font-bold text-sm text-stone-900 uppercase tracking-tight">
-            {title}
-          </p>
+          <p className="font-bold text-sm text-stone-900 uppercase tracking-tight">{title}</p>
           <p className="text-[10px] text-stone-500">{description}</p>
         </div>
       </div>
-      <div
-        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-          selected ? "border-amber-600" : "border-stone-300"
-        }`}
-      >
-        {selected && (
-          <div className="w-2 h-2 rounded-full bg-amber-600" />
-        )}
+      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+        selected ? "border-amber-600" : "border-stone-300"
+      }`}>
+        {selected && <div className="w-2 h-2 rounded-full bg-amber-600" />}
       </div>
     </button>
   );

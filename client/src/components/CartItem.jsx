@@ -34,7 +34,7 @@ const CartItem = ({ item }) => {
         <div className="flex items-center bg-stone-50 border border-stone-200 rounded-xl overflow-hidden">
           <button
             onClick={() => updateQuantity(item._id, item.quantity - 1)}
-            disabled={item.quantity <= 1}
+            disabled={item.quantity <= 10}
             className="p-2.5 hover:bg-white text-stone-500 disabled:opacity-30 transition-colors"
           >
             <Minus size={13} />

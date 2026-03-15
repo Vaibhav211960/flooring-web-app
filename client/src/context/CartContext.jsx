@@ -10,24 +10,12 @@ export const CartProvider = ({ children }) => {
   const [cartTotal, setCartTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  const token = localStorage.getItem("UserToken");
   const API_BASE_URL = "http://localhost:5000/api/cart";
 
   const getAuthHeaders = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem("UserToken")}` },
   });
 
-  /**
-   * Normalize a raw cart item from the API into a consistent shape.
-   *
-   * The backend returns items like:
-   *   { _id: <cartRowId>, productId: { _id, name, image, price, ... }, price, quantity, total }
-   *
-   * We preserve BOTH ids so downstream pages can use them correctly:
-   *   - cartItemId  → the cart-row _id  (used for remove/update operations)
-   *   - _id         → the product _id   (used in order payloads)
-   *   - productId   → full product object (kept so BuyAll resolver works)
-   */
   const formatCartItems = (items) =>
     items.map((item) => {
       const prod = item.productId || {};
@@ -35,21 +23,16 @@ export const CartProvider = ({ children }) => {
         "https://directflooringonline.co.uk/wp-content/uploads/2024/02/Habitat-Oak-Glue-Down-LVT-Flooring-Bedroom-1.jpg";
 
       return {
-        // ── IDs ────────────────────────────────────────────────────────────
-        cartItemId: item._id,            // cart-row id for remove/update API calls
-        _id:        prod._id || item._id, // product id for order payloads
-
-        // ── Keep the full productId object so BuyAll resolver can read it ─
-        productId: prod,
-
-        // ── Flat copies for convenient access ─────────────────────────────
-        name:     prod.name  || item.name  || "",
-        image:    Array.isArray(prod.image)
-                    ? (prod.image[0] || fallbackImage)
-                    : (prod.image || item.image || fallbackImage),
-        price:    item.price    ?? prod.price    ?? 0,
-        quantity: item.quantity ?? 1,
-        total:    item.total    ?? (item.price ?? prod.price ?? 0) * (item.quantity ?? 1),
+        cartItemId: item._id,
+        _id:        prod._id || item._id,
+        productId:  prod,
+        name:       prod.name  || item.name  || "",
+        image:      Array.isArray(prod.image)
+                      ? (prod.image[0] || fallbackImage)
+                      : (prod.image || item.image || fallbackImage),
+        price:      item.price    ?? prod.price    ?? 0,
+        quantity:   item.quantity ?? 10,
+        total:      item.total    ?? (item.price ?? prod.price ?? 0) * (item.quantity ?? 1),
       };
     });
 
@@ -67,9 +50,7 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  useEffect(() => {
-    fetchCart();
-  }, []);                               // run once on mount; token read fresh in getAuthHeaders
+  useEffect(() => { fetchCart(); }, []);
 
   const addToCart = async (product, quantity = 1) => {
     if (!localStorage.getItem("UserToken")) {
@@ -90,10 +71,6 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  /**
-   * removeFromCart accepts the PRODUCT id (item._id after formatting).
-   * The API endpoint path uses it directly.
-   */
   const removeFromCart = async (productId) => {
     try {
       const res = await axios.delete(
@@ -108,21 +85,21 @@ export const CartProvider = ({ children }) => {
     }
   };
 
+  // ── FIX: log errors so clearCart failures are visible during debugging ──
   const clearCart = async () => {
     try {
       await axios.delete(`${API_BASE_URL}/clear`, getAuthHeaders());
       setCartItems([]);
       setCartTotal(0);
-    } catch {
+    } catch (err) {
+      console.error("clearCart failed:", err.response?.status, err.response?.data);
       toast.error("Could not clear cart.");
+      throw err; // re-throw so Payment.jsx knows it failed
     }
   };
 
   const updateQuantity = async (productId, quantity) => {
-    if (quantity < 1) {
-      removeFromCart(productId);
-      return;
-    }
+    if (quantity < 1) { removeFromCart(productId); return; }
     try {
       const res = await axios.put(
         `${API_BASE_URL}/update`,
@@ -136,9 +113,9 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const getCartItemCount  = () => cartItems.reduce((t, item) => t + item.quantity, 0);
-  const isInCart          = (productId) => cartItems.some((item) => item._id === productId);
-  const getItemQuantity   = (productId) => cartItems.find((item) => item._id === productId)?.quantity || 0;
+  const getCartItemCount = () => cartItems.reduce((t, item) => t + item.quantity, 0);
+  const isInCart         = (productId) => cartItems.some((item) => item._id === productId);
+  const getItemQuantity  = (productId) => cartItems.find((item) => item._id === productId)?.quantity || 0;
 
   return (
     <CartContext.Provider

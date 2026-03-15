@@ -3,7 +3,7 @@ import { useCart } from "../context/CartContext";
 import { toast } from "react-hot-toast";
 import { ShoppingCart, Check, Loader2 } from "lucide-react";
 
-const AddToCartBtn = ({ product, variant = "default", className = "", qty }) => {
+const AddToCartBtn = ({ product, variant = "default", className = "", qty='10' }) => {
   const { addToCart, isInCart, getItemQuantity } = useCart();
   const [localLoading, setLocalLoading] = useState(false);
 

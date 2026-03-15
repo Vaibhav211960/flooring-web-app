@@ -9,31 +9,56 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useCart } from "../context/CartContext";
 
 export default function OrderSuccess() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  
-  const { order } = location.state || {};
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const location  = useLocation();
+  const navigate  = useNavigate();
+  const { clearCart, cartItems } = useCart();
 
+  const { order } = location.state || {};
+  const [isSpeaking,    setIsSpeaking]    = useState(false);
+  const [isGenerating,  setIsGenerating]  = useState(false);
+
+  // ── Redirect if no order in state ─────────────────────────────────────────
   useEffect(() => {
-    if (!order) {
-      navigate("/");
-    }
+    if (!order) navigate("/");
   }, [order, navigate]);
 
-  // --- Professional Invoice Logic ---
+  // ── SAFETY NET: clear cart when this page mounts ──────────────────────────
+  // Payment.jsx already calls clearCart() before navigating here, but if it
+  // failed silently (network blip, wrong token) the cart would still be full.
+  // This ensures the cart is always empty once the order success page is shown.
+  useEffect(() => {
+    const cleanupCart = async () => {
+      // Only make the API call if there are actually items to clear
+      if (cartItems.length > 0) {
+        try {
+          await clearCart();
+        } catch (err) {
+          // Already logged inside clearCart — nothing else to do here
+        }
+      }
+      // Always wipe checkout keys from localStorage
+      localStorage.removeItem("checkout_details");
+      localStorage.removeItem("checkout_products");
+      localStorage.removeItem("temp_shipping_address");
+      localStorage.removeItem("pending_product");
+      localStorage.removeItem("pending_qty");
+    };
+    cleanupCart();
+  }, []); // run once on mount only — empty dep array is intentional
+
+  // ── Invoice generator ──────────────────────────────────────────────────────
   const generateInvoice = () => {
     try {
       setIsGenerating(true);
-      const doc = new jsPDF();
-      const date = new Date(order.orderDate || Date.now()).toLocaleDateString('en-IN');
-      
-      // 1. Branding Header
-      doc.setFillColor(28, 25, 23); 
-      doc.rect(0, 0, 210, 40, 'F'); 
+      const doc  = new jsPDF();
+      const date = new Date(order.orderDate || Date.now()).toLocaleDateString("en-IN");
+
+      // Branding header
+      doc.setFillColor(28, 25, 23);
+      doc.rect(0, 0, 210, 40, "F");
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(24);
@@ -43,7 +68,7 @@ export default function OrderSuccess() {
       doc.setTextColor(160, 160, 160);
       doc.text(`REFERENCE ID: ${order._id.toUpperCase()}`, 14, 32);
 
-      // 2. Billing & Shipping Details
+      // Billing & shipping
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
@@ -60,42 +85,38 @@ export default function OrderSuccess() {
       doc.setFont("helvetica", "normal");
       const addressLines = doc.splitTextToSize(order.shippingAddress.address, 70);
       doc.text(addressLines, 120, 62);
-      doc.text([
-        `Pincode: ${order.shippingAddress.pincode}`
-      ], 120, 62 + (addressLines.length * 5));
+      doc.text([`Pincode: ${order.shippingAddress.pincode}`], 120, 62 + addressLines.length * 5);
 
-      // 3. Table
-      const tableRows = order.items.map((item, index) => [
-        index + 1,
-        item.productName.toUpperCase(),
-        item.units,
-        `INR ${Number(item.pricePerUnit).toLocaleString('en-IN')}`,
-        `INR ${Number(item.totalAmount).toLocaleString('en-IN')}`
-      ]);
-
+      // Items table
       autoTable(doc, {
         startY: 95,
-        head: [["SR.", "DESCRIPTION", "QTY", "RATE", "AMOUNT"]],
-        body: tableRows,
-        theme: "grid",
-        headStyles: { fillColor: [28, 25, 23], textColor: [255, 255, 255], fontSize: 9 },
-        columnStyles: { 0: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        head:   [["SR.", "DESCRIPTION", "QTY", "RATE", "AMOUNT"]],
+        body:   order.items.map((item, i) => [
+          i + 1,
+          item.productName.toUpperCase(),
+          item.units,
+          `INR ${Number(item.pricePerUnit).toLocaleString("en-IN")}`,
+          `INR ${Number(item.totalAmount).toLocaleString("en-IN")}`,
+        ]),
+        theme:       "grid",
+        headStyles:  { fillColor: [28, 25, 23], textColor: [255, 255, 255], fontSize: 9 },
+        columnStyles: { 0: { halign: "center" }, 2: { halign: "center" }, 3: { halign: "right" }, 4: { halign: "right" } },
       });
 
-      // 4. Financial Summary
+      // Grand total
       const finalY = doc.lastAutoTable.finalY + 15;
       doc.setFillColor(245, 245, 245);
-      doc.rect(120, finalY - 5, 76, 20, 'F');
+      doc.rect(120, finalY - 5, 76, 20, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.text("GRAND TOTAL:", 125, finalY + 7);
       doc.setTextColor(180, 83, 9);
-      doc.text(`INR ${Number(order.netBill).toLocaleString('en-IN')}`, 190, finalY + 7, { align: 'right' });
+      doc.text(`INR ${Number(order.netBill).toLocaleString("en-IN")}`, 190, finalY + 7, { align: "right" });
 
-      // 5. Footer
+      // Footer
       doc.setFontSize(7);
       doc.setTextColor(150);
-      doc.text("This is a system-generated document for the transaction secured on our platform.", 105, 285, { align: 'center' });
+      doc.text("This is a system-generated document for the transaction secured on our platform.", 105, 285, { align: "center" });
 
       doc.save(`Invoice_${order._id.slice(-6)}.pdf`);
     } catch (error) {
@@ -105,6 +126,7 @@ export default function OrderSuccess() {
     }
   };
 
+  // ── Text-to-speech ─────────────────────────────────────────────────────────
   const speakOrderSummary = () => {
     if (!window.speechSynthesis) return;
     if (isSpeaking) {
@@ -112,10 +134,11 @@ export default function OrderSuccess() {
       setIsSpeaking(false);
       return;
     }
-    const message = `Thank you, ${order.shippingAddress.fullName}. Your order is confirmed. The total of ${order.netBill} rupees is secured.`;
-    const utterance = new SpeechSynthesisUtterance(message);
+    const utterance = new SpeechSynthesisUtterance(
+      `Thank you, ${order.shippingAddress.fullName}. Your order is confirmed. The total of ${order.netBill} rupees is secured.`
+    );
     utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
+    utterance.onend   = () => setIsSpeaking(false);
     window.speechSynthesis.speak(utterance);
   };
 
@@ -127,23 +150,29 @@ export default function OrderSuccess() {
 
       <main className="flex-grow pt-24 pb-20">
         <div className="container max-w-5xl mx-auto px-6">
-          
+
+          {/* Success badge */}
           <div className="flex flex-col items-center text-center mb-16">
             <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-6 border border-emerald-100 relative">
               <CheckCircle2 className="h-10 w-10 text-emerald-600" />
-              <button 
+              <button
                 onClick={speakOrderSummary}
                 className="absolute -right-12 bottom-0 p-3 bg-white border border-stone-200 rounded-full shadow-sm hover:text-amber-600 transition-colors"
               >
                 {isSpeaking ? <VolumeX size={18} /> : <Volume2 size={18} />}
               </button>
             </div>
-            <h1 className="text-5xl font-serif font-bold tracking-tight">Purchase <span className="italic text-amber-600">Complete</span></h1>
-            <p className="mt-4 text-stone-500 font-serif italic">Your premium materials have been secured successfully.</p>
+            <h1 className="text-5xl font-serif font-bold tracking-tight">
+              Purchase <span className="italic text-amber-600">Complete</span>
+            </h1>
+            <p className="mt-4 text-stone-500 font-serif italic">
+              Your premium materials have been secured successfully.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-            
+
+            {/* Order manifest */}
             <div className="lg:col-span-7 space-y-6">
               <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="p-6 bg-stone-900 text-white flex justify-between items-center">
@@ -172,18 +201,22 @@ export default function OrderSuccess() {
                       </div>
                     ))}
                   </div>
-
                   <div className="mt-8 pt-6 border-t border-stone-200 flex justify-between items-end">
                     <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400">Total Paid</p>
-                    <p className="text-4xl font-mono font-bold text-amber-800 tracking-tighter">₹{order.netBill.toLocaleString()}</p>
+                    <p className="text-4xl font-mono font-bold text-amber-800 tracking-tighter">
+                      ₹{order.netBill.toLocaleString()}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Dispatch details + actions */}
             <div className="lg:col-span-5 space-y-6">
               <div className="bg-white border border-stone-200 rounded-2xl p-8 shadow-sm">
-                <h3 className="font-serif font-bold text-lg mb-6 border-b border-stone-100 pb-4 text-stone-800">Dispatch Detail</h3>
+                <h3 className="font-serif font-bold text-lg mb-6 border-b border-stone-100 pb-4 text-stone-800">
+                  Dispatch Detail
+                </h3>
                 <div className="space-y-6">
                   <div className="flex gap-4">
                     <User size={18} className="text-stone-300 mt-1" />
@@ -202,24 +235,23 @@ export default function OrderSuccess() {
                 </div>
               </div>
 
-              {/* ACTION BUTTONS */}
               <div className="flex flex-col gap-3">
-                <Button 
+                <Button
                   onClick={generateInvoice}
                   disabled={isGenerating}
                   className="bg-amber-600 hover:bg-amber-700 text-white h-14 rounded-xl font-bold uppercase tracking-widest text-[9px] flex gap-2"
                 >
-                  <Download size={16} /> {isGenerating ? "Preparing PDF..." : "Download Digital Invoice"}
+                  <Download size={16} />
+                  {isGenerating ? "Preparing PDF..." : "Download Digital Invoice"}
                 </Button>
-                
                 <div className="grid grid-cols-2 gap-3">
-                  <Button 
+                  <Button
                     onClick={() => window.print()}
                     className="bg-stone-100 hover:bg-stone-200 text-stone-900 h-12 rounded-xl font-bold uppercase tracking-widest text-[9px]"
                   >
                     Quick Print
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => navigate("/")}
                     className="bg-stone-900 text-white h-12 rounded-xl font-bold uppercase tracking-widest text-[9px]"
                   >
@@ -227,8 +259,8 @@ export default function OrderSuccess() {
                   </Button>
                 </div>
               </div>
-
             </div>
+
           </div>
         </div>
       </main>

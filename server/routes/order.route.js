@@ -13,15 +13,19 @@ import adminAuth from "../middleware/admin.middleware.js";
 
 const router = express.Router();
 
-// customer
-router.post("/place", verifyToken, createOrder);
-router.get("/my",verifyToken, getMyOrders);
-router.get("/:id", verifyToken, getOrderById);
+// ── Customer routes (no wildcard yet) ────────────────────────────────────────
+router.post("/place",    verifyToken, createOrder);
+router.get("/my",        verifyToken, getMyOrders);
 router.put("/:id/cancel", verifyToken, cancelOrder);
 
-// admin
-router.get("/admin/getAll", getAllOrders);
-router.put("/admin/update-status/:id", adminAuth, updateOrderStatus);
-router.delete("/admin/delete/:id", adminAuth, deleteOrder);
+// ── Admin routes — MUST come before "/:id" wildcard ──────────────────────────
+// If these were after router.get("/:id"), Express would match "admin" as the
+// :id param and never reach these handlers.
+router.get("/admin/getAll",               getAllOrders);
+router.put("/admin/update-status/:id",    adminAuth, updateOrderStatus);
+router.delete("/admin/delete/:id",        adminAuth, deleteOrder);
+
+// ── Wildcard route last — catches /:id only after all specific routes checked ─
+router.get("/:id", verifyToken, getOrderById);
 
 export default router;
