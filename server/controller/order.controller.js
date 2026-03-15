@@ -5,9 +5,6 @@ import mongoose from "mongoose";
 
 /**
  * CUSTOMER: Place an order
- * 
- * FIX: Never trust productName from the client — fetch it from the DB.
- * This prevents ValidationError when the client sends an empty/missing name.
  */
 export const createOrder = async (req, res) => {
   try {
@@ -22,21 +19,19 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: "No items in order" });
     }
 
-    // ── Resolve product names from DB so we never depend on client-sent names ──
     const productIds = items.map((item) => item.productId).filter(Boolean);
 
     let productMap = {};
     if (productIds.length > 0) {
       const products = await Product.find(
         { _id: { $in: productIds } },
-        "name price"                          // only fetch what we need
+        "name price"
       );
       productMap = Object.fromEntries(
         products.map((p) => [p._id.toString(), p])
       );
     }
 
-    // ── Build sanitized items, filling in name/price from DB if client omitted them ──
     const sanitizedItems = items.map((item) => {
       const productIdStr = item.productId?.toString();
       const dbProduct    = productMap[productIdStr];
@@ -51,15 +46,13 @@ export const createOrder = async (req, res) => {
       };
     });
 
-    // 1. Create Payment first
     const newPayment = await Payment.create({
       paymentMode:   paymentMethod,
       amount:        netBill,
       paymentStatus: paymentMode === "COD" ? "processing" : "confirmed",
-      orderId:       new mongoose.Types.ObjectId(), // placeholder, updated below
+      orderId:       new mongoose.Types.ObjectId(),
     });
 
-    // 2. Create Order
     const order = await Order.create({
       userId,
       items:           sanitizedItems,
@@ -70,7 +63,6 @@ export const createOrder = async (req, res) => {
       orderStatus:     "pending",
     });
 
-    // 3. Link payment to real order ID
     newPayment.orderId = order._id;
     await newPayment.save();
 
@@ -83,7 +75,7 @@ export const createOrder = async (req, res) => {
 };
 
 /**
- * CUSTOMER: Get logged-in user's orders
+ * CUSTOMER: Get logged-in user's own orders
  */
 export const getMyOrders = async (req, res) => {
   try {
@@ -97,7 +89,7 @@ export const getMyOrders = async (req, res) => {
 };
 
 /**
- * CUSTOMER: Get order details
+ * CUSTOMER: Get single order by ID
  */
 export const getOrderById = async (req, res) => {
   try {
@@ -117,7 +109,9 @@ export const getOrderById = async (req, res) => {
 };
 
 /**
- * CUSTOMER: Cancel order (only if pending)
+ * CUSTOMER: Cancel order (only if still pending)
+ * FIX: was setting orderStatus to "cancel" — unified to "cancelled"
+ * to match the frontend STATUS_CONFIG and validStatuses array below
  */
 export const cancelOrder = async (req, res) => {
   try {
@@ -136,7 +130,8 @@ export const cancelOrder = async (req, res) => {
       });
     }
 
-    order.orderStatus = "cancel";
+    // FIX: was "cancel" — changed to "cancelled" for consistency
+    order.orderStatus = "cancelled";
     await order.save();
 
     res.status(200).json({ message: "Order cancelled successfully", order });
@@ -169,24 +164,70 @@ export const getAllOrders = async (req, res) => {
 };
 
 /**
+ * ADMIN: Get all orders for a specific user
+ * NEW: this was completely missing — the customer history modal in
+ * Customers.jsx calls GET /orders/admin/user/:userId and was always
+ * getting 404 because this function didn't exist
+ */
+export const getOrdersByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Validate that userId is a valid MongoDB ObjectId before querying
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID." });
+    }
+
+    const orders = await Order.find({ userId })
+      .sort({ createdAt: -1 });  // newest first
+
+    res.status(200).json({
+      success: true,
+      count:   orders.length,
+      orders,
+    });
+  } catch (err) {
+    console.error(`[ADMIN_USER_ORDERS_ERROR]: ${err.message}`);
+    res.status(500).json({
+      success: false,
+      message: "Server error: Unable to retrieve user orders.",
+    });
+  }
+};
+
+/**
  * ADMIN: Update order status
+ * FIX: validStatuses had "cancel" — changed to "cancelled" to match
+ * the frontend STATUS_CONFIG and cancelOrder function above
  */
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { id }     = req.params;
-    const { status } = req.body;
+    const { id }               = req.params;
+    const { status, adminNote } = req.body;
 
-    const validStatuses = ["pending", "arriving", "delivered", "cancel"];
-    if (!validStatuses.includes(status)) {
+    // FIX: was "cancel" — now "cancelled" — consistent across entire codebase
+    const validStatuses = ["pending", "arriving", "delivered", "cancelled"];
+
+    if (status && !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status update requested.",
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
       });
+    }
+
+    // Build update object — only include fields that were actually sent
+    // This way the same endpoint handles both status updates AND note saves
+    const updateFields = {};
+    if (status)    updateFields.orderStatus = status;
+    if (adminNote !== undefined) updateFields.adminNote = adminNote;
+
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({ success: false, message: "No fields to update." });
     }
 
     const updatedOrder = await Order.findByIdAndUpdate(
       id,
-      { orderStatus: status },
+      updateFields,
       { new: true, runValidators: true }
     );
 
@@ -196,7 +237,7 @@ export const updateOrderStatus = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Order status updated to ${status}`,
+      message: status ? `Order status updated to ${status}` : "Order updated.",
       order:   updatedOrder,
     });
   } catch (err) {

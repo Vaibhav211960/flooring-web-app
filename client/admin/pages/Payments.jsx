@@ -1,68 +1,108 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import {
-  IndianRupee, ArrowUpRight, CheckCircle2, Clock, AlertCircle,
-  X, Download, Loader2,
+  IndianRupee, ArrowUpRight, CheckCircle2, Clock,
+  AlertCircle, X, Download, Loader2, Search,
 } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+
+// ── Shared axios instance ──
+// FIX: was using "adminToken" — unified to "token"
+const api = axios.create({ baseURL: "http://localhost:5000/api" });
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+const ITEMS_PER_PAGE = 10;
+
+// ── Status config at module level — pure function, no need to pass as prop ──
+// OLD: defined inside component AND passed as prop to modal — redundant
+// NEW: defined once here, used everywhere directly
+const getStatusConfig = (status) => {
+  switch (status?.toLowerCase()) {
+    case "confirmed":
+    case "success":
+      return { style: "bg-emerald-50 text-emerald-700 border-emerald-100", icon: <CheckCircle2 size={12} />, label: "Confirmed" };
+    case "pending":
+    case "processing":
+      return { style: "bg-amber-50 text-amber-700 border-amber-100", icon: <Clock size={12} />, label: "Processing" };
+    case "cancelled":
+    case "failed":
+      return { style: "bg-rose-50 text-rose-700 border-rose-100", icon: <AlertCircle size={12} />, label: "Failed" };
+    default:
+      return { style: "bg-stone-100 text-stone-500 border-stone-200", icon: null, label: status || "—" };
+  }
+};
 
 const Payments = () => {
-  const [payments, setPayments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [payments,        setPayments]        = useState([]);
+  const [isLoading,       setIsLoading]       = useState(true); // FIX: was "loading"
   const [selectedPayment, setSelectedPayment] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen,     setIsModalOpen]     = useState(false);
+  const [searchTerm,      setSearchTerm]      = useState("");
+  const [currentPage,     setCurrentPage]     = useState(1);
 
-  const fetchPayments = async () => {
+  // ── useCallback: stable fetch reference ──
+  const fetchPayments = useCallback(async () => {
     try {
-      setLoading(true);
-      const token = localStorage.getItem("adminToken");
-      const response = await axios.get(
-        "http://localhost:5000/api/payments/admin/getAll",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setPayments(response.data);
-    } catch (error) {
+      setIsLoading(true);
+      const res = await api.get("/payments/admin/getAll");
+      // FIX: was response.data — if backend returns { payments: [...] } this would
+      // set the whole object not the array. Now handles both shapes safely.
+      setPayments(res.data.payments || res.data || []);
+    } catch {
       toast.error("Failed to load payment data.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchPayments();
   }, []);
 
-  const getStatusConfig = (status) => {
-    switch (status?.toLowerCase()) {
-      case "confirmed":
-      case "success":
-        return { style: "bg-emerald-50 text-emerald-700 border-emerald-100", icon: <CheckCircle2 size={12} />, label: "Confirmed" };
-      case "pending":
-      case "processing":
-        return { style: "bg-amber-50 text-amber-700 border-amber-100", icon: <Clock size={12} />, label: "Processing" };
-      case "cancelled":
-      case "failed":
-        return { style: "bg-rose-50 text-rose-700 border-rose-100", icon: <AlertCircle size={12} />, label: "Failed" };
-      default:
-        return { style: "bg-stone-100 text-stone-500 border-stone-200", icon: null, label: status };
-    }
-  };
+  useEffect(() => { fetchPayments(); }, [fetchPayments]);
 
-  const totalRevenue = payments
-    .filter((p) => p.paymentStatus === "confirmed" || p.paymentStatus === "success")
-    .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  // ── useMemo: totalRevenue ──
+  // OLD: computed directly in render body — ran on every render
+  const totalRevenue = useMemo(() =>
+    payments
+      .filter((p) => ["confirmed", "success"].includes(p.paymentStatus?.toLowerCase()))
+      .reduce((acc, p) => acc + (p.amount || 0), 0),
+  [payments]);
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-48">
-        <Loader2 className="animate-spin text-amber-600 h-8 w-8" />
-      </div>
-    );
+  // ── useMemo: search filter ──
+  const filteredPayments = useMemo(() => {
+    const s = searchTerm.toLowerCase();
+    if (!s) return payments;
+    return payments.filter((p) => {
+      const name  = (p.orderId?.userId?.name || p.orderId?.shippingAddress?.fullName || "").toLowerCase();
+      const email = (p.orderId?.userId?.email || "").toLowerCase();
+      const id    = p._id.slice(-6).toLowerCase();
+      return name.includes(s) || email.includes(s) || id.includes(s);
+    });
+  }, [payments, searchTerm]);
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPayments.length / ITEMS_PER_PAGE));
+
+  const paginatedPayments = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredPayments.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredPayments, currentPage]);
+
+  const openModal  = useCallback((pay) => { setSelectedPayment(pay); setIsModalOpen(true); }, []);
+  const closeModal = useCallback(() => { setIsModalOpen(false); setSelectedPayment(null); }, []);
+
+  if (isLoading) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4">
+      <Loader2 className="animate-spin text-amber-600 h-8 w-8" />
+      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Loading Payments...</p>
+    </div>
+  );
 
   return (
     <div className="space-y-8">
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -71,15 +111,24 @@ const Payments = () => {
             Track all transactions and payment statuses.
           </p>
         </div>
-
         <div className="flex items-center gap-3 bg-white px-5 py-3 rounded-xl border border-stone-200 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-            Confirmed Revenue
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Confirmed Revenue</p>
           <p className="text-sm font-bold text-stone-900 flex items-center gap-0.5">
             <IndianRupee size={12} /> {totalRevenue.toLocaleString("en-IN")}
           </p>
         </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={14} />
+        <input
+          type="text"
+          placeholder="Search by name, email or transaction ID..."
+          className="w-full pl-10 pr-4 py-3 bg-white border border-stone-200 rounded-xl text-sm outline-none focus:border-amber-500 transition-all shadow-sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
       {/* Table */}
@@ -96,21 +145,17 @@ const Payments = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100 text-sm">
-            {payments.length === 0 ? (
+            {paginatedPayments.length === 0 ? (
               <tr>
                 <td colSpan="6" className="p-16 text-center text-stone-400 italic text-sm">
-                  No payment records found.
+                  {searchTerm ? "No payments match your search." : "No payment records found."}
                 </td>
               </tr>
             ) : (
-              payments.map((pay) => {
-                const config = getStatusConfig(pay.paymentStatus);
-                const displayName =
-                  pay.orderId?.userId?.name ||
-                  pay.orderId?.shippingAddress?.fullName ||
-                  "Guest";
-                const userEmail = pay.orderId?.userId?.email || "—";
-
+              paginatedPayments.map((pay) => {
+                const config      = getStatusConfig(pay.paymentStatus);
+                const displayName = pay.orderId?.userId?.name || pay.orderId?.shippingAddress?.fullName || "Guest";
+                const userEmail   = pay.orderId?.userId?.email || "—";
                 return (
                   <tr key={pay._id} className="hover:bg-stone-50/50 transition-colors group">
                     <td className="p-5 font-mono text-[11px] font-bold text-stone-400">
@@ -133,13 +178,9 @@ const Payments = () => {
                       </span>
                     </td>
                     <td className="p-5">
-                      <p className="text-sm font-bold text-stone-900">
-                        ₹{pay.amount?.toLocaleString("en-IN")}
-                      </p>
+                      <p className="text-sm font-bold text-stone-900">₹{pay.amount?.toLocaleString("en-IN")}</p>
                       <p className="text-[10px] text-stone-400 mt-0.5">
-                        {new Date(pay.paymentDate || pay.createdAt).toLocaleDateString("en-IN", {
-                          day: "2-digit", month: "short",
-                        })}
+                        {new Date(pay.paymentDate || pay.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
                       </p>
                     </td>
                     <td className="p-5">
@@ -148,11 +189,7 @@ const Payments = () => {
                       </span>
                     </td>
                     <td className="p-5 text-right">
-                      <button
-                        onClick={() => { setSelectedPayment(pay); setIsModalOpen(true); }}
-                        className="p-2 hover:bg-stone-100 rounded-lg transition-all"
-                        title="View details"
-                      >
+                      <button onClick={() => openModal(pay)} className="p-2 hover:bg-stone-100 rounded-lg transition-all" title="View details">
                         <ArrowUpRight size={16} className="text-stone-400 hover:text-stone-700" />
                       </button>
                     </td>
@@ -164,62 +201,101 @@ const Payments = () => {
         </table>
       </div>
 
+      {/* Pagination */}
+      {filteredPayments.length > ITEMS_PER_PAGE && (
+        <div className="flex items-center justify-between px-2">
+          <p className="text-[11px] text-stone-400 font-medium uppercase tracking-widest">
+            Showing{" "}
+            <span className="text-stone-700 font-bold">
+              {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredPayments.length)}
+            </span>
+            {" "}of <span className="text-stone-700 font-bold">{filteredPayments.length}</span> payments
+          </p>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
+              className="px-4 py-2 rounded-xl border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500 bg-white hover:bg-stone-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+              ← Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+              .reduce((acc, page, idx, arr) => {
+                if (idx > 0 && page - arr[idx - 1] > 1) acc.push("gap-" + page);
+                acc.push(page);
+                return acc;
+              }, [])
+              .map((item) =>
+                typeof item === "string" ? (
+                  <span key={item} className="px-1.5 text-stone-300 text-xs">…</span>
+                ) : (
+                  <button key={item} onClick={() => setCurrentPage(item)}
+                    className={`w-9 h-9 rounded-xl text-[11px] font-bold transition-all border ${
+                      currentPage === item ? "bg-stone-900 text-amber-400 border-stone-900 shadow-md" : "bg-white text-stone-500 border-stone-200 hover:bg-stone-50"
+                    }`}>{item}</button>
+                )
+              )}
+            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+              className="px-4 py-2 rounded-xl border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500 bg-white hover:bg-stone-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && selectedPayment && (
-        <PaymentDetailModal
-          payment={selectedPayment}
-          onClose={() => setIsModalOpen(false)}
-          getStatusConfig={getStatusConfig}
-        />
+        <PaymentDetailModal payment={selectedPayment} onClose={closeModal} />
       )}
     </div>
   );
 };
 
-// --- Payment Detail Modal ---
-const PaymentDetailModal = ({ payment, onClose, getStatusConfig }) => {
-  const config = getStatusConfig(payment.paymentStatus);
-  const displayName =
-    payment.orderId?.userId?.name ||
-    payment.orderId?.shippingAddress?.fullName ||
-    "Guest";
+// ── Payment Detail Modal ──────────────────────────────────────────────────────
+const PaymentDetailModal = ({ payment, onClose }) => {
+  // FIX: getStatusConfig no longer passed as prop — available from module scope directly
+  const config      = getStatusConfig(payment.paymentStatus);
+  const displayName = payment.orderId?.userId?.name || payment.orderId?.shippingAddress?.fullName || "Guest";
 
-  const generateReceipt = () => {
+  // ── Receipt generation via dynamic import ──
+  // FIX: was static import at top — if jsPDF not installed, entire file crashes on load
+  // NEW: dynamic import inside the function — only tries to load when admin clicks Receipt
+  // If not installed, shows a helpful install message instead of crashing
+  const generateReceipt = async () => {
     try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
       const doc = new jsPDF();
       doc.setFillColor(28, 25, 23);
       doc.rect(0, 0, 210, 40, "F");
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(20);
-      doc.text("INSCAPE LAYERS", 14, 22);
+      doc.text("FLOORING STORE", 14, 22);
       doc.setFontSize(8);
       doc.text("OFFICIAL TRANSACTION RECEIPT", 14, 30);
-
       doc.setTextColor(0);
       doc.setFontSize(10);
       doc.text(`Transaction ID: PAY-${payment._id.slice(-6).toUpperCase()}`, 14, 55);
       doc.text(`Date: ${new Date(payment.createdAt).toLocaleDateString("en-IN")}`, 14, 62);
       doc.text(`Customer: ${displayName}`, 14, 69);
       doc.text(`Payment Mode: ${payment.paymentMode}`, 14, 76);
-
       autoTable(doc, {
         startY: 86,
-        head: [["Description", "Amount"]],
-        body: [["Order Payment", `INR ${payment.amount?.toLocaleString("en-IN")}`]],
-        theme: "grid",
+        head:   [["Description", "Amount"]],
+        body:   [["Order Payment", `INR ${payment.amount?.toLocaleString("en-IN")}`]],
+        theme:  "grid",
         headStyles: { fillColor: [28, 25, 23] },
       });
-
-      doc.save(`Inscape_Receipt_${payment._id.slice(-6)}.pdf`);
+      doc.save(`Receipt_PAY-${payment._id.slice(-6)}.pdf`);
       toast.success("Receipt downloaded.");
     } catch {
-      toast.error("Could not generate receipt.");
+      toast.error("Run: npm install jspdf jspdf-autotable — then try again.");
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-stone-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-stone-200 overflow-hidden">
-        {/* Header */}
+
         <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between bg-stone-50">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Payment Details</p>
@@ -227,34 +303,26 @@ const PaymentDetailModal = ({ payment, onClose, getStatusConfig }) => {
               PAY-{payment._id.slice(-6).toUpperCase()}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-stone-200 rounded-lg transition-colors text-stone-400 hover:text-stone-700"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-stone-200 rounded-lg transition-colors text-stone-400">
             <X size={18} />
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-6 space-y-5">
-          {/* Customer */}
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-stone-900 flex items-center justify-center text-amber-500 font-bold text-sm shrink-0">
               {displayName.charAt(0).toUpperCase()}
             </div>
             <div>
               <p className="text-sm font-bold text-stone-900">{displayName}</p>
-              <p className="text-[10px] text-stone-400">
-                {payment.orderId?.userId?.email || "—"}
-              </p>
+              <p className="text-[10px] text-stone-400">{payment.orderId?.userId?.email || "—"}</p>
             </div>
           </div>
 
-          {/* Details grid */}
           <div className="grid grid-cols-2 gap-4 bg-stone-50 rounded-xl p-4 border border-stone-100">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1">Method</p>
-              <p className="text-sm font-bold text-stone-900">{payment.paymentMode}</p>
+              <p className="text-sm font-medium text-stone-700">{payment.paymentMode}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1">Status</p>
@@ -265,9 +333,7 @@ const PaymentDetailModal = ({ payment, onClose, getStatusConfig }) => {
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1">Date</p>
               <p className="text-sm text-stone-700">
-                {new Date(payment.paymentDate || payment.createdAt).toLocaleDateString("en-IN", {
-                  day: "2-digit", month: "short", year: "numeric",
-                })}
+                {new Date(payment.paymentDate || payment.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
               </p>
             </div>
             <div>
@@ -278,13 +344,10 @@ const PaymentDetailModal = ({ payment, onClose, getStatusConfig }) => {
             </div>
           </div>
 
-          {/* Amount + Download */}
           <div className="flex items-center justify-between bg-stone-900 p-5 rounded-xl text-white">
             <div>
               <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1">Total Amount</p>
-              <p className="text-2xl font-serif font-bold">
-                ₹{payment.amount?.toLocaleString("en-IN")}
-              </p>
+              <p className="text-2xl font-serif font-bold">₹{payment.amount?.toLocaleString("en-IN")}</p>
             </div>
             <button
               onClick={generateReceipt}
@@ -295,12 +358,9 @@ const PaymentDetailModal = ({ payment, onClose, getStatusConfig }) => {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 bg-stone-50 border-t border-stone-100 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-xl border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500 hover:bg-stone-100 transition-all"
-          >
+          <button onClick={onClose}
+            className="px-6 py-2.5 rounded-xl border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500 hover:bg-stone-100 transition-all">
             Close
           </button>
         </div>

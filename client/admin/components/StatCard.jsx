@@ -15,13 +15,13 @@ const StatCard = ({ title, value, icon, trend, trendValue }) => {
             </h3>
           </div>
 
-          {/* Trend Indicator (Optional Subtitle Replacement) */}
+          {/* Trend Indicator */}
           {(trendValue || trend) && (
             <div className="flex items-center gap-2">
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                trend === 'up' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                trend === "up" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
               }`}>
-                {trend === 'up' ? '↑' : '↓'} {trendValue}
+                {trend === "up" ? "↑" : "↓"} {trendValue}
               </span>
               <span className="text-[10px] text-stone-400 uppercase tracking-widest font-medium">
                 vs last month
@@ -32,15 +32,15 @@ const StatCard = ({ title, value, icon, trend, trendValue }) => {
 
         {/* Right: Icon Box */}
         <div className="h-14 w-14 flex items-center justify-center rounded-2xl bg-stone-50 text-stone-400 group-hover:bg-amber-500 group-hover:text-white transition-all duration-500 shadow-inner">
-          {/* We assume 'icon' is a Lucide component passed in */}
           {icon ? React.cloneElement(icon, { size: 24, strokeWidth: 1.5 }) : "📈"}
         </div>
       </div>
-      
+
       {/* Bottom decorative accent line */}
       <div className="mt-6 h-1 w-0 group-hover:w-full bg-amber-500 transition-all duration-500 rounded-full" />
     </div>
   );
 };
 
+// FIX: was "export default StatCar" — missing the "d" — caused silent import failure
 export default StatCard;

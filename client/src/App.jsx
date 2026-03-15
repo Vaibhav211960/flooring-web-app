@@ -41,6 +41,7 @@ import AdminPayments from "../admin/pages/Payments.jsx";
 import AdminFeedback from "../admin/pages/Feedbacks.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
 import Inventory from "../admin/pages/Inventory.jsx";
+import Reports from "../admin/pages/Reports.jsx";
 
 const queryClient = new QueryClient();
 
@@ -133,6 +134,7 @@ function App() {
                 <Route path="payments" element={<AdminPayments />} />
                 <Route path="feedback" element={<AdminFeedback />} />
                 <Route path="inventory" element={<Inventory />} />
+                <Route path="reports" element={<Reports />} />
               </Route>
 
               {/* ================= 404 ================= */}

@@ -4,7 +4,6 @@ import mongoose from "mongoose";
 
 /**
  * CUSTOMER: Verify if user can leave feedback for a product
- * Checks: user has a delivered order containing this product AND hasn't already reviewed it
  */
 export const checkFeedbackEligibility = async (req, res) => {
   try {
@@ -13,7 +12,6 @@ export const checkFeedbackEligibility = async (req, res) => {
 
     const productObjectId = new mongoose.Types.ObjectId(productId);
 
-    // Find a delivered order for this user that contains the product
     const deliveredOrder = await Order.findOne({
       userId,
       orderStatus: "delivered",
@@ -27,7 +25,6 @@ export const checkFeedbackEligibility = async (req, res) => {
       });
     }
 
-    // Check if feedback already exists for this user + product combo
     const existingFeedback = await Feedback.findOne({
       userId,
       productId: productObjectId,
@@ -74,6 +71,9 @@ export const submitVerifiedFeedback = async (req, res) => {
       rating,
       comment,
       images: images || [],
+      // New reviews start as pending — admin must approve before they show on storefront
+      isApproved: false,
+      isRejected: false,
     });
 
     const populatedFeedback = await newFeedback.populate("userId", "userName");
@@ -110,8 +110,13 @@ export const editMyFeedback = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized: You can only edit your own reviews." });
     }
 
-    feedback.rating = rating ?? feedback.rating;
+    feedback.rating  = rating  ?? feedback.rating;
     feedback.comment = comment ?? feedback.comment;
+
+    // When a customer edits their review, reset to pending so admin re-moderates it
+    feedback.isApproved = false;
+    feedback.isRejected = false;
+
     await feedback.save();
 
     const populated = await feedback.populate("userId", "userName");
@@ -131,9 +136,8 @@ export const editMyFeedback = async (req, res) => {
  */
 export const deleteMyFeedback = async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.user._id;
-
+    const { id }   = req.params;
+    const userId   = req.user._id;
     const feedback = await Feedback.findById(id);
 
     if (!feedback) {
@@ -145,7 +149,6 @@ export const deleteMyFeedback = async (req, res) => {
     }
 
     await feedback.deleteOne();
-
     res.status(200).json({ message: "Feedback deleted successfully." });
   } catch (err) {
     console.error("DELETE_FEEDBACK_ERROR:", err.message);
@@ -168,13 +171,18 @@ export const getMyFeedbackHistory = async (req, res) => {
 };
 
 /**
- * PUBLIC: Get all reviews for a product
+ * PUBLIC: Get all APPROVED reviews for a product
+ * FIX: was returning ALL reviews — now only returns approved ones
+ * so rejected/pending reviews never show on the storefront
  */
 export const getProductReviews = async (req, res) => {
   try {
     const productId = new mongoose.Types.ObjectId(req.params.productId);
 
-    const feedbacks = await Feedback.find({ productId })
+    const feedbacks = await Feedback.find({
+      productId,
+      isApproved: true,   // only show approved reviews to customers
+    })
       .populate("userId", "userName")
       .sort({ createdAt: -1 });
 
@@ -185,7 +193,7 @@ export const getProductReviews = async (req, res) => {
 };
 
 /**
- * ADMIN: Get all platform feedback
+ * ADMIN: Get all platform feedback (all statuses)
  */
 export const getAdminFeedbackLedger = async (req, res) => {
   try {
@@ -200,7 +208,61 @@ export const getAdminFeedbackLedger = async (req, res) => {
 };
 
 /**
- * ADMIN: Remove a feedback entry
+ * ADMIN: Approve a review — makes it visible on the storefront
+ * FIX: this function was completely missing — frontend called PUT /feedback/admin/approve/:id
+ * and got 404 every time because this route was never registered
+ */
+export const approveFeedback = async (req, res) => {
+  try {
+    const feedback = await Feedback.findByIdAndUpdate(
+      req.params.id,
+      { isApproved: true, isRejected: false },
+      { new: true }
+    );
+
+    if (!feedback) {
+      return res.status(404).json({ message: "Feedback not found." });
+    }
+
+    res.status(200).json({
+      message: "Feedback approved and published.",
+      feedback,
+    });
+  } catch (err) {
+    console.error("APPROVE_FEEDBACK_ERROR:", err.message);
+    res.status(500).json({ message: "Server error while approving feedback." });
+  }
+};
+
+/**
+ * ADMIN: Reject a review — hides it from the storefront
+ * FIX: this function was completely missing — frontend called PUT /feedback/admin/reject/:id
+ * and got 404 every time because this route was never registered
+ */
+export const rejectFeedback = async (req, res) => {
+  try {
+    const feedback = await Feedback.findByIdAndUpdate(
+      req.params.id,
+      { isRejected: true, isApproved: false },
+      { new: true }
+    );
+
+    if (!feedback) {
+      return res.status(404).json({ message: "Feedback not found." });
+    }
+
+    res.status(200).json({
+      message: "Feedback rejected and hidden.",
+      feedback,
+    });
+  } catch (err) {
+    console.error("REJECT_FEEDBACK_ERROR:", err.message);
+    res.status(500).json({ message: "Server error while rejecting feedback." });
+  }
+};
+
+/**
+ * ADMIN: Delete a feedback entry permanently
  */
 export const removeFeedback = async (req, res) => {
   try {

@@ -8,7 +8,8 @@ import {
   CreditCard,
   MessageSquare,
   Warehouse,
-  LogOut,        // ← icon import kept — was being overwritten by the function below
+  BarChart2,   // Reports icon
+  LogOut,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -48,6 +49,7 @@ const Sidebar = () => {
         <SidebarLink to="/admin/customers"         icon={<Users size={18} />}           label="Customers"      base={baseClass} active={activeClass} inactive={inactiveClass} />
         <SidebarLink to="/admin/payments"          icon={<CreditCard size={18} />}      label="Payments"       base={baseClass} active={activeClass} inactive={inactiveClass} />
         <SidebarLink to="/admin/feedback"          icon={<MessageSquare size={18} />}   label="Feedback"       base={baseClass} active={activeClass} inactive={inactiveClass} />
+        <SidebarLink to="/admin/reports"           icon={<BarChart2 size={18} />}        label="Reports"        base={baseClass} active={activeClass} inactive={inactiveClass} />
       </nav>
 
       {/* Logout */}
@@ -56,7 +58,7 @@ const Sidebar = () => {
             outside the sidebar and overlap page content on scroll */}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-4 py-3 text-[11px] uppercase tracking-widest font-bold text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
+          className="flex items-center gap-3 w-fit px-4 py-3 text-[11px] uppercase tracking-widest font-bold text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
         >
           <LogOut size={16} /> Exit
         </button>
