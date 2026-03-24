@@ -1,58 +1,64 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
-  Menu,
-  User,
-  ShoppingCart,
-  LogOut,
-  Package,
-  Settings,
-  Loader2,
+  Menu, User, ShoppingCart, LogOut, Package, Settings, Loader2,
 } from "lucide-react";
-import axios from "axios";
 import { useCart } from "../context/CartContext.jsx";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { CartSheet } from "../components/CartSheet.jsx";
+// FIX: was reading "UserToken" directly — now uses unified auth utils
+import { getUserToken, clearUserToken } from "../utils/auth.js";
+import api from "../utils/api";
 
 export default function Navbar() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const { getCartItemCount } = useCart();
   const cartItemCount = getCartItemCount();
 
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isDashboard, setDashboard] = useState(false);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [isMenuOpen,  setIsMenuOpen]  = useState(false);
+  const [isDashboard, setDashboard]   = useState(false);
+  const [user,        setUser]        = useState(null);
+  const [isLoading,   setIsLoading]   = useState(false);
 
-  const token = localStorage.getItem("UserToken");
-  const isLogged = !!token;
+  // FIX: was const token = localStorage.getItem("UserToken") at component level
+  // That reads the token ONCE on first render and never updates.
+  // Now we derive isLogged from user state + a fresh token check.
+  // The useEffect below re-runs when location changes (after login/logout navigations).
+  const [isLogged, setIsLogged] = useState(() => !!getUserToken());
 
   const dashboardRef = useRef(null);
-  const userBtnRef = useRef(null);
+  const userBtnRef   = useRef(null);
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!token) {
-        setUser(null);
-        return;
-      }
-      try {
-        setLoading(true);
-        const response = await axios.get("http://localhost:5000/api/users/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setUser(response.data.user || response.data);
-      } catch {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUserProfile();
-  }, [token]);
+  // useCallback: stable reference — won't be recreated on every render
+  const fetchUserProfile = useCallback(async () => {
+    const token = getUserToken(); // always reads fresh from localStorage
+    if (!token) {
+      setUser(null);
+      setIsLogged(false);
+      return;
+    }
+    try {
+      setIsLoading(true);
+      setIsLogged(true);
+      const res = await api.get("/users/me");
+      setUser(res.data.user || res.data);
+    } catch {
+      // Token invalid or expired — clear it
+      clearUserToken();
+      setUser(null);
+      setIsLogged(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
+  // Re-fetch on location change — catches login/logout navigations
+  // FIX: was [token] dependency — token was a const, never changed, effect never re-ran
+  useEffect(() => { fetchUserProfile(); }, [fetchUserProfile, location.pathname]);
+
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -67,64 +73,58 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Close menus on navigation
   useEffect(() => {
     setIsMenuOpen(false);
     setDashboard(false);
   }, [location]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("UserToken");
+  // useCallback: stable handler
+  // FIX: was localStorage.removeItem("UserToken") — now uses clearUserToken()
+  const handleLogout = useCallback(() => {
+    clearUserToken();
     setUser(null);
+    setIsLogged(false);
     setDashboard(false);
     navigate("/");
-  };
+  }, [navigate]);
 
   const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/categories", label: "Categories" },
-    { href: "/products", label: "Products" },
-    { href: "/about", label: "About" },
-    { href: "/contact", label: "Contact" },
+    { href: "/",          label: "Home"       },
+    { href: "/categories",label: "Categories" },
+    { href: "/products",  label: "Products"   },
+    { href: "/about",     label: "About"      },
+    { href: "/contact",   label: "Contact"    },
   ];
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-stone-200 bg-white/90 backdrop-blur-md shadow-sm">
       <div className="container mx-auto px-6 md:px-10 flex h-16 items-center justify-between">
 
-        {/* ── Logo ── */}
+        {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group">
           <div className="w-8 h-8 bg-stone-900 rounded-sm flex items-center justify-center group-hover:bg-amber-700 transition-colors">
             <span className="text-white font-serif font-bold text-lg">I</span>
           </div>
-          <span className="font-serif text-xl font-bold tracking-tight text-stone-900">
-            Inscape Layers
-          </span>
+          <span className="font-serif text-xl font-bold tracking-tight text-stone-900">Inscape Layers</span>
         </Link>
 
-        {/* ── Desktop Nav ── */}
+        {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
-            <Link
-              key={link.label}
-              to={link.href}
+            <Link key={link.label} to={link.href}
               className={`text-sm font-medium transition-colors hover:text-amber-700 ${
-                location.pathname === link.href
-                  ? "text-amber-800"
-                  : "text-stone-600"
-              }`}
-            >
+                location.pathname === link.href ? "text-amber-800" : "text-stone-600"
+              }`}>
               {link.label}
             </Link>
           ))}
         </div>
 
-        {/* ── Desktop Actions ── */}
+        {/* Desktop Actions */}
         <div className="hidden md:flex items-center gap-3 relative">
-          {/* Cart Icon */}
-          <Link
-            to="/cart"
-            className="relative p-2 hover:bg-stone-100 rounded-xl transition-colors"
-          >
+          {/* Cart */}
+          <Link to="/cart" className="relative p-2 hover:bg-stone-100 rounded-xl transition-colors">
             <ShoppingCart className="h-5 w-5 text-stone-600" />
             {cartItemCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 bg-amber-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
@@ -137,17 +137,10 @@ export default function Navbar() {
 
           {isLogged ? (
             <div className="relative">
-              <button
-                ref={userBtnRef}
-                onClick={() => setDashboard((prev) => !prev)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-stone-100 transition-colors"
-              >
+              <button ref={userBtnRef} onClick={() => setDashboard((prev) => !prev)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-stone-100 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-800 border border-amber-200">
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <User className="h-4 w-4" />
-                  )}
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />}
                 </div>
                 <span className="text-sm font-medium text-stone-700 max-w-[80px] truncate">
                   {user?.userName || "Account"}
@@ -155,35 +148,21 @@ export default function Navbar() {
               </button>
 
               {isDashboard && (
-                <div
-                  ref={dashboardRef}
-                  className="absolute top-full right-0 mt-2 w-60 bg-white border border-stone-100 rounded-2xl shadow-lg py-2 z-[60]"
-                >
+                <div ref={dashboardRef}
+                  className="absolute top-full right-0 mt-2 w-60 bg-white border border-stone-100 rounded-2xl shadow-lg py-2 z-[60]">
                   <div className="px-4 py-3 border-b border-stone-100 mb-1">
-                    <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest mb-0.5">
-                      Signed in as
-                    </p>
-                    <p className="text-sm font-semibold truncate text-stone-800">
-                      {user?.email || "—"}
-                    </p>
+                    <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest mb-0.5">Signed in as</p>
+                    <p className="text-sm font-semibold truncate text-stone-800">{user?.email || "—"}</p>
                   </div>
-                  <Link
-                    to="/profile"
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-amber-50 hover:text-amber-900 transition-colors"
-                  >
+                  <Link to="/profile" className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-amber-50 hover:text-amber-900 transition-colors">
                     <Settings className="w-4 h-4" /> Profile Settings
                   </Link>
-                  <Link
-                    to="/orders"
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-amber-50 hover:text-amber-900 transition-colors"
-                  >
+                  <Link to="/orders" className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-amber-50 hover:text-amber-900 transition-colors">
                     <Package className="w-4 h-4" /> My Orders
                   </Link>
                   <div className="h-px bg-stone-100 my-1" />
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                  >
+                  <button onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
                     <LogOut className="w-4 h-4" /> Sign Out
                   </button>
                 </div>
@@ -192,20 +171,16 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-2">
               <Link to="/login">
-                <Button variant="ghost" className="text-stone-600 text-sm">
-                  Log In
-                </Button>
+                <Button variant="ghost" className="text-stone-600 text-sm">Log In</Button>
               </Link>
               <Link to="/register">
-                <Button className="bg-stone-900 hover:bg-stone-800 text-white px-5 text-sm rounded-xl">
-                  Sign Up
-                </Button>
+                <Button className="bg-stone-900 hover:bg-stone-800 text-white px-5 text-sm rounded-xl">Sign Up</Button>
               </Link>
             </div>
           )}
         </div>
 
-        {/* ── Mobile ── */}
+        {/* Mobile */}
         <div className="md:hidden flex items-center gap-2">
           <CartSheet />
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -222,30 +197,19 @@ export default function Navbar() {
                       <User className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-stone-900">
-                        {user.userName}
-                      </p>
-                      <p className="text-xs text-stone-500 truncate">
-                        {user.email}
-                      </p>
+                      <p className="text-sm font-bold text-stone-900">{user.userName}</p>
+                      <p className="text-xs text-stone-500 truncate">{user.email}</p>
                     </div>
                   </div>
                 )}
 
                 <div className="flex flex-col gap-4">
-                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                    Navigation
-                  </p>
+                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Navigation</p>
                   {navLinks.map((link) => (
-                    <Link
-                      key={link.label}
-                      to={link.href}
+                    <Link key={link.label} to={link.href}
                       className={`text-xl font-serif font-medium hover:text-amber-700 transition-colors ${
-                        location.pathname === link.href
-                          ? "text-amber-800"
-                          : "text-stone-900"
-                      }`}
-                    >
+                        location.pathname === link.href ? "text-amber-800" : "text-stone-900"
+                      }`}>
                       {link.label}
                     </Link>
                   ))}
@@ -256,36 +220,20 @@ export default function Navbar() {
                 <div className="flex flex-col gap-3">
                   {isLogged ? (
                     <>
-                      <Link
-                        to="/profile"
-                        className="text-sm text-stone-600 hover:text-amber-700 transition-colors"
-                      >
-                        Profile Settings
-                      </Link>
-                      <Link
-                        to="/orders"
-                        className="text-sm text-stone-600 hover:text-amber-700 transition-colors"
-                      >
-                        My Orders
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="mt-2 w-full py-2.5 px-4 bg-red-50 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 transition-colors text-left"
-                      >
+                      <Link to="/profile" className="text-sm text-stone-600 hover:text-amber-700 transition-colors">Profile Settings</Link>
+                      <Link to="/orders" className="text-sm text-stone-600 hover:text-amber-700 transition-colors">My Orders</Link>
+                      <button onClick={handleLogout}
+                        className="mt-2 w-full py-2.5 px-4 bg-red-50 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 transition-colors text-left">
                         Sign Out
                       </button>
                     </>
                   ) : (
                     <>
                       <Link to="/login">
-                        <Button variant="outline" className="w-full rounded-xl">
-                          Log In
-                        </Button>
+                        <Button variant="outline" className="w-full rounded-xl">Log In</Button>
                       </Link>
                       <Link to="/register">
-                        <Button className="w-full bg-stone-900 hover:bg-stone-800 text-white rounded-xl">
-                          Sign Up
-                        </Button>
+                        <Button className="w-full bg-stone-900 hover:bg-stone-800 text-white rounded-xl">Sign Up</Button>
                       </Link>
                     </>
                   )}

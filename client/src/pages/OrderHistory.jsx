@@ -1,61 +1,86 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import {
-  Home as HomeIcon, ChevronRight, Package, Clock, CheckCircle2,
-  XCircle, Receipt, ArrowRight, Trash2, Loader2,
+  Home as HomeIcon, ChevronRight, Package, Receipt,
+  ArrowRight, Loader2,
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-
-const statusConfig = {
-  delivered: {
-    label: "Delivered",
-    icon: <CheckCircle2 size={12} />,
-    style: "bg-emerald-50 text-emerald-700 border border-emerald-100",
-  },
-  cancel: {
-    label: "Cancelled",
-    icon: <XCircle size={12} />,
-    style: "bg-red-50 text-red-700 border border-red-100",
-  },
-  pending: {
-    label: "Processing",
-    icon: <Clock size={12} />,
-    style: "bg-amber-50 text-amber-700 border border-amber-100",
-  },
-};
+import api from "../utils/api";
+import { getStatusConfig } from "../utils/validators";
 
 export default function OrderHistory() {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [orders,    setOrders]    = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  const fetchOrders = async () => {
+  // useCallback: stable fetch reference
+  // FIX: was plain async — needed for optimistic cancel revert
+  const fetchOrders = useCallback(async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/orders/my", {
-        headers: { Authorization: `Bearer ${localStorage.getItem("UserToken")}` },
-      });
-      setOrders(response.data.orders);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
+      setIsLoading(true);
+      const res = await api.get("/orders/my");
+      // Sort newest first
+      const sorted = [...(res.data.orders || [])].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+      setOrders(sorted);
+    } catch {
+      // FIX: was console.error — silent failure, user saw nothing
+      toast.error("Could not load orders.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  const handleCancelOrder = async (orderId) => {
-    if (window.confirm("Are you sure you want to cancel this order?")) {
-      try {
-        await axios.put(`/api/orders/cancel/${orderId}`);
-        fetchOrders();
-      } catch (error) {
-        alert(error.response?.data?.message || "Failed to cancel order");
-      }
-    }
-  };
+  // FIX 1: was window.confirm() — breaks design, can't be styled
+  // FIX 2: was calling wrong URL "/api/orders/cancel/:id" (relative, missing base)
+  // FIX 3: was calling fetchOrders() after cancel — now uses optimistic update
+  const handleCancelOrder = useCallback((orderId) => {
+    toast(
+      (t) => (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-medium text-stone-800">
+            Cancel this order? This cannot be undone.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                toast.dismiss(t.id);
+                // Optimistic update — instantly show cancelled in UI
+                setOrders((prev) =>
+                  prev.map((o) =>
+                    o._id === orderId ? { ...o, orderStatus: "cancelled" } : o
+                  )
+                );
+                try {
+                  await api.put(`/orders/cancel/${orderId}`);
+                  toast.success("Order cancelled.");
+                } catch (err) {
+                  // Revert on failure
+                  setOrders((prev) =>
+                    prev.map((o) =>
+                      o._id === orderId ? { ...o, orderStatus: "pending" } : o
+                    )
+                  );
+                  toast.error(err.response?.data?.message || "Failed to cancel order.");
+                }
+              }}
+              className="flex-1 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all uppercase tracking-widest"
+            >Confirm</button>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="flex-1 px-3 py-1.5 bg-stone-100 text-stone-700 text-xs font-bold rounded-lg hover:bg-stone-200 transition-all uppercase tracking-widest"
+            >Keep Order</button>
+          </div>
+        </div>
+      ),
+      { duration: 8000 }
+    );
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900">
@@ -73,9 +98,7 @@ export default function OrderHistory() {
             <ChevronRight className="h-3 w-3 text-stone-700" />
             <span className="text-amber-500">Orders</span>
           </nav>
-          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500 mb-3">
-            My Account
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500 mb-3">My Account</p>
           <h1 className="font-serif text-4xl md:text-5xl font-bold leading-tight">
             Order <span className="italic text-amber-400">History</span>
           </h1>
@@ -84,7 +107,6 @@ export default function OrderHistory() {
 
       <main className="flex-grow py-12 md:py-16">
         <div className="container max-w-5xl mx-auto px-6">
-
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-stone-400">
               <Receipt size={14} />
@@ -98,7 +120,7 @@ export default function OrderHistory() {
             </button>
           </div>
 
-          {loading ? (
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center py-24">
               <Loader2 className="animate-spin text-amber-600 h-8 w-8 mb-4" />
               <p className="text-stone-400 text-sm italic tracking-widest">Loading orders...</p>
@@ -120,7 +142,8 @@ export default function OrderHistory() {
           ) : (
             <div className="space-y-5">
               {orders.map((order) => {
-                const status = statusConfig[order.orderStatus] || statusConfig.pending;
+                // FIX: was using "cancel" key — getStatusConfig handles both "cancel" and "cancelled"
+                const status = getStatusConfig(order.orderStatus);
                 return (
                   <div
                     key={order._id}
@@ -135,13 +158,13 @@ export default function OrderHistory() {
                               Order #{order._id.slice(-6).toUpperCase()}
                             </span>
                             <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${status.style}`}>
-                              {status.icon} {status.label}
+                              {status.label}
                             </span>
                           </div>
                           <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-2">
                             Placed:{" "}
                             {new Date(order.orderDate || order.createdAt).toLocaleDateString("en-IN", {
-                              day: "2-digit", month: "short", year: "numeric"
+                              day: "2-digit", month: "short", year: "numeric",
                             })}
                           </p>
                         </div>
@@ -152,7 +175,7 @@ export default function OrderHistory() {
                         </div>
                       </div>
 
-                      {/* Order Details Grid */}
+                      {/* Order Details */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
                         <div>
                           <p className="text-[10px] uppercase tracking-widest font-bold text-stone-400 mb-1.5">Payment</p>
@@ -163,12 +186,13 @@ export default function OrderHistory() {
                           <p className="text-sm font-semibold text-stone-600 italic">3–5 business days</p>
                         </div>
                         <div className="md:col-span-2 flex items-end">
+                          {/* Only show cancel for pending orders */}
                           {order.orderStatus === "pending" ? (
                             <button
                               onClick={() => handleCancelOrder(order._id)}
-                              className="flex items-center gap-1.5 text-[10px] font-bold text-red-500 uppercase tracking-widest hover:text-red-700 transition-colors"
+                              className="text-[10px] font-bold text-red-500 uppercase tracking-widest hover:text-red-700 transition-colors"
                             >
-                              <Trash2 size={12} /> Cancel Order
+                              Cancel Order
                             </button>
                           ) : (
                             <span className="text-[10px] text-stone-400 italic">No actions available</span>

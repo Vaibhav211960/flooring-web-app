@@ -3,7 +3,15 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import AddToCartBtn from "../components/AddToCartBtn.jsx";
 
-const ProductCard = ({ product }) => {
+const Productcard = ({ product }) => {
+  // FIX: was product.image[1] || product.image[0]
+  // If image is stored as a plain string (single image) this crashes:
+  //   "https://example.com/img.jpg"[1] → "t" (second character of the URL)
+  // NEW: Array.isArray guard — handles both string and array safely
+  const imageSrc = Array.isArray(product.image)
+    ? product.image[1] || product.image[0]
+    : product.image || "https://directflooringonline.co.uk/wp-content/uploads/2024/02/Habitat-Oak-Glue-Down-LVT-Flooring-Bedroom-1.jpg";
+
   return (
     <div className="group cursor-pointer flex flex-col h-full bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden hover:shadow-md hover:border-stone-300 transition-all duration-300">
 
@@ -12,7 +20,7 @@ const ProductCard = ({ product }) => {
         <div className="relative overflow-hidden aspect-[4/3]">
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent z-10" />
           <img
-            src={product.image[1] || product.image[0] || "https://directflooringonline.co.uk/wp-content/uploads/2024/02/Habitat-Oak-Glue-Down-LVT-Flooring-Bedroom-1.jpg"}
+            src={imageSrc}
             alt={product.name}
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             loading="lazy"
@@ -21,15 +29,11 @@ const ProductCard = ({ product }) => {
             <span className="inline-flex items-center rounded-full bg-black/50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white">
               ₹{product.price} / {product.unit || "sqft"}
             </span>
-            <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-bold ${
-                product.stock > 5
-                  ? "bg-emerald-100/90 text-emerald-900"
-                  : product.stock > 0
-                  ? "bg-amber-100/90 text-amber-900"
-                  : "bg-red-100/90 text-red-900"
-              }`}
-            >
+            <span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-bold ${
+              product.stock > 5  ? "bg-emerald-100/90 text-emerald-900"
+              : product.stock > 0 ? "bg-amber-100/90 text-amber-900"
+              : "bg-red-100/90 text-red-900"
+            }`}>
               {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
             </span>
           </div>
@@ -61,4 +65,9 @@ const ProductCard = ({ product }) => {
   );
 };
 
-export { ProductCard };
+// FIX: was a plain component — no memoization
+// This renders in a grid of 20–40 cards at a time.
+// Without React.memo, every parent state change (search input, page scroll)
+// re-renders ALL cards even though the product data hasn't changed.
+// React.memo caches the output and only re-renders if product prop changes.
+export const ProductCard = React.memo(Productcard);

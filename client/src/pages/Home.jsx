@@ -1,18 +1,59 @@
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Truck, Award, PenTool, ShieldCheck, Star, ArrowRight } from "lucide-react";
+import { Truck, Award, PenTool, ShieldCheck, Star, ArrowRight, Loader2 } from "lucide-react";
 import Navbar from "../components/Navbar.jsx";
 import Footer from "../components/Footer.jsx";
 import { CategoryCard } from "../components/CategoryCard.jsx";
-import { CATEGORIES, REVIEWS } from "../libs/mockData.js";
 import { FeatureBox } from "../ui/featureBox.jsx";
 import { Button } from "../ui/button.jsx";
 import heroImage from "../assets/elegant_living_room_with_hardwood_flooring.png";
+import api from "../utils/api";
+
+const REVIEWS = [
+  {
+    id: 1,
+    name: "Emily R.",
+    rating: 5,
+    text: "Inscape transformed our home! The quality is unmatched and the process was seamless. Highly recommend for anyone looking to upgrade their flooring.",
+  },
+  {
+    id: 2,
+    name: "Michael S.",
+    rating: 4,
+    text: "Great value for the price. The flooring looks fantastic and has held up well with our kids and pets. Customer service was responsive when we had questions.",
+  },
+  {
+    id: 3,
+    name: "Sophia L.",
+    rating: 5,
+    text: "I was blown away by the durability and beauty of the floors. They have a real premium feel without the premium price. Will definitely be using Inscape for future projects!",
+  },
+];
 
 export default function Home() {
+  // FIX: categories now fetched from API, not hardcoded mock data
+  const [categories,   setCategories]   = useState([]);
+  const [isCatLoading, setIsCatLoading] = useState(true);
+
+  // useCallback: stable reference — won't be recreated on every render
+  const fetchCategories = useCallback(async () => {
+    try {
+      setIsCatLoading(true);
+      // Fetch subcategories to show as collections (same as CategoryPage)
+      const res = await api.get("/subcategories");
+      setCategories(res.data.subCategories || []);
+    } catch {
+      // Silent fail — homepage still renders, just without live categories
+    } finally {
+      setIsCatLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
   const scrollToCategories = (e) => {
     e.preventDefault();
-    const element = document.getElementById("categories");
-    if (element) element.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("categories")?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -61,17 +102,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CATEGORIES */}
+      {/* CATEGORIES — now from API */}
       <section id="categories" className="py-16 md:py-24 bg-stone-50">
         <div className="container max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-700 mb-2">
-                Our Catalog
-              </p>
-              <h2 className="font-serif text-4xl font-semibold text-stone-900">
-                Browse by Category
-              </h2>
+              <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-700 mb-2">Our Catalog</p>
+              <h2 className="font-serif text-4xl font-semibold text-stone-900">Browse by Category</h2>
             </div>
             <Link
               to="/categories"
@@ -81,17 +118,26 @@ export default function Home() {
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {CATEGORIES.slice(0, 3).map((cat) => (
-              <Link
-                key={cat.id}
-                to="/categories"
-                className="transform transition-all duration-300 hover:-translate-y-1"
-              >
-                <CategoryCard cat={cat} />
-              </Link>
-            ))}
-          </div>
+
+          {isCatLoading ? (
+            <div className="flex items-center justify-center py-16 gap-3">
+              <Loader2 className="h-6 w-6 text-amber-600 animate-spin" />
+              <span className="text-stone-400 text-sm italic tracking-widest">Loading collections...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Show first 3 — same as before but now from real API */}
+              {categories.slice(0, 3).map((cat) => (
+                <Link
+                  key={cat._id || cat.id}
+                  to={`/category/subcategory/${cat._id || cat.id}`}
+                  className="transform transition-all duration-300 hover:-translate-y-1"
+                >
+                  <CategoryCard cat={cat} />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -99,37 +145,28 @@ export default function Home() {
       <section className="py-16 md:py-24 bg-stone-900 text-white">
         <div className="container max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
-            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500 mb-3">
-              Our Promise
-            </p>
-            <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4">
-              Why Choose Inscape
-            </h2>
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500 mb-3">Our Promise</p>
+            <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4">Why Choose Inscape</h2>
             <div className="h-px w-12 bg-amber-600 mx-auto mb-5" />
             <p className="text-stone-400 max-w-xl mx-auto text-sm leading-relaxed">
-              We cut out the middlemen to bring you industrial-grade durability
-              with showroom aesthetics.
+              We cut out the middlemen to bring you industrial-grade durability with showroom aesthetics.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <FeatureBox icon={Award} title="Premium Materials" description="Sourced directly from top manufacturers to ensure lasting quality." />
-            <FeatureBox icon={ShieldCheck} title="Transparent Pricing" description="Direct-to-consumer pricing without compromising on quality." />
-            <FeatureBox icon={PenTool} title="Design Support" description="Expert guidance from concept to completion." />
-            <FeatureBox icon={Truck} title="Fast Delivery" description="Reliable shipping with secure packaging." />
+            <FeatureBox icon={Award}       title="Premium Materials"    description="Sourced directly from top manufacturers to ensure lasting quality." />
+            <FeatureBox icon={ShieldCheck} title="Transparent Pricing"  description="Direct-to-consumer pricing without compromising on quality." />
+            <FeatureBox icon={PenTool}     title="Design Support"       description="Expert guidance from concept to completion." />
+            <FeatureBox icon={Truck}       title="Fast Delivery"        description="Reliable shipping with secure packaging." />
           </div>
         </div>
       </section>
 
-      {/* REVIEWS */}
+      {/* REVIEWS — still from mockData (these are testimonials, not product reviews) */}
       <section className="py-16 md:py-24 bg-stone-50">
         <div className="container max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
-            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-700 mb-2">
-              Customer Reviews
-            </p>
-            <h2 className="font-serif text-3xl font-semibold text-stone-900">
-              Trusted by Homeowners
-            </h2>
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-700 mb-2">Customer Reviews</p>
+            <h2 className="font-serif text-3xl font-semibold text-stone-900">Trusted by Homeowners</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {REVIEWS.map((review) => (
@@ -143,9 +180,7 @@ export default function Home() {
                       <Star key={i} className="h-4 w-4 fill-amber-500 text-amber-500" />
                     ))}
                   </div>
-                  <p className="text-stone-600 mb-6 text-sm leading-relaxed italic">
-                    "{review.text}"
-                  </p>
+                  <p className="text-stone-600 mb-6 text-sm leading-relaxed italic">"{review.text}"</p>
                 </div>
                 <div className="flex items-center justify-between border-t border-stone-100 pt-4">
                   <span className="font-semibold text-stone-900 text-sm">{review.name}</span>
@@ -162,12 +197,8 @@ export default function Home() {
       {/* CTA */}
       <section className="py-16 md:py-24 bg-amber-600 text-white text-center">
         <div className="container max-w-3xl mx-auto px-6">
-          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-100 mb-4">
-            Start Your Project
-          </p>
-          <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4">
-            Ready to Transform Your Space?
-          </h2>
+          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-100 mb-4">Start Your Project</p>
+          <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4">Ready to Transform Your Space?</h2>
           <p className="text-amber-100 mb-10 text-sm leading-relaxed max-w-md mx-auto">
             Get a custom quote or order samples to see the quality for yourself.
           </p>

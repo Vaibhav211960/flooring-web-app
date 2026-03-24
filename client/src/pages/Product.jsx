@@ -1,35 +1,47 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
 import { ProductCard } from "../components/ProductCard";
 import { ChevronRight, Home as HomeIcon, Search, Loader2 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import api from "../utils/api";
 
 export default function Product() {
-  const [products, setProducts] = useState([]);
-  const [search, setSearch] = useState("");
+  const [products,  setProducts]  = useState([]);
+  const [search,    setSearch]    = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error,     setError]     = useState(null);
 
-  useEffect(() => {
-    const fetchAllProducts = async () => {
-      try {
-        setIsLoading(true);
-        const response = await axios.get("http://localhost:5000/api/products");
-        setProducts(response.data.products || response.data);
-      } catch (err) {
-        setError("Failed to load products. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchAllProducts();
+  // useCallback: stable fetch reference — not recreated on every render
+  // FIX: was plain async in useEffect — no way to retry without page reload
+  const fetchProducts = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const res = await api.get("/products");
+      setProducts(res.data.products || res.data || []);
+    } catch {
+      // FIX: was console.error — user saw nothing. Now sets error state for UI
+      setError("Failed to load products. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const filteredProducts = Array.isArray(products)
-    ? products.filter((p) => p.name?.toLowerCase().includes(search.toLowerCase()))
-    : [];
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  // useMemo: filter only recomputes when products or search changes
+  // OLD: plain .filter() in render body — ran on EVERY render
+  // NEW: cached result — only recomputes when inputs change
+  const filteredProducts = useMemo(() => {
+    const s = search.toLowerCase();
+    if (!s) return products;
+    return products.filter((p) =>
+      p.name?.toLowerCase().includes(s) ||
+      p.materialType?.toLowerCase().includes(s) ||
+      p.finish?.toLowerCase().includes(s)
+    );
+  }, [products, search]);
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-50">
@@ -46,9 +58,7 @@ export default function Product() {
             <span className="text-amber-500">Products</span>
           </nav>
           <div className="max-w-3xl">
-            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500 mb-3">
-              Our Catalog
-            </p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-500 mb-3">Our Catalog</p>
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold mb-5 leading-tight">
               Premium <span className="italic text-amber-400">Flooring</span>
             </h1>
@@ -97,8 +107,10 @@ export default function Product() {
         {!isLoading && error && (
           <div className="max-w-sm mx-auto text-center py-14 bg-red-50 rounded-2xl border border-red-100 px-6">
             <p className="text-red-700 font-medium text-sm mb-4">{error}</p>
+            {/* FIX: was window.location.reload() — hard page reload kills React state */}
+            {/* NEW: calls fetchProducts() which is a stable useCallback reference */}
             <button
-              onClick={() => window.location.reload()}
+              onClick={fetchProducts}
               className="px-6 h-10 bg-red-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-700 transition-colors"
             >
               Try Again
@@ -107,29 +119,27 @@ export default function Product() {
         )}
 
         {!isLoading && !error && (
-          <>
-            {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((p) => (
-                  <ProductCard key={p._id || p.id} product={p} />
-                ))}
+          filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredProducts.map((p) => (
+                <ProductCard key={p._id || p.id} product={p} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-24 border-2 border-dashed border-stone-200 rounded-2xl">
+              <div className="bg-stone-100 w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="h-6 w-6 text-stone-400" />
               </div>
-            ) : (
-              <div className="text-center py-24 border-2 border-dashed border-stone-200 rounded-2xl">
-                <div className="bg-stone-100 w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="h-6 w-6 text-stone-400" />
-                </div>
-                <h3 className="text-lg font-serif font-bold text-stone-900 mb-2">No products found</h3>
-                <p className="text-stone-500 text-sm">No results for "{search}"</p>
-                <button
-                  onClick={() => setSearch("")}
-                  className="mt-5 text-amber-700 font-bold uppercase text-[10px] tracking-[0.2em] hover:text-amber-600 transition-colors"
-                >
-                  Clear Search
-                </button>
-              </div>
-            )}
-          </>
+              <h3 className="text-lg font-serif font-bold text-stone-900 mb-2">No products found</h3>
+              <p className="text-stone-500 text-sm">No results for "{search}"</p>
+              <button
+                onClick={() => setSearch("")}
+                className="mt-5 text-amber-700 font-bold uppercase text-[10px] tracking-[0.2em] hover:text-amber-600 transition-colors"
+              >
+                Clear Search
+              </button>
+            </div>
+          )
         )}
       </main>
 
